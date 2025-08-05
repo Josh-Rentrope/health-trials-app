@@ -12,9 +12,9 @@ type FilterSidebarProps = {
 };
 
 const initialFilters: FilterState = {
-  condition: 'Anal Carcinoma',
-  location: 'Lexington, North Carolina',
-  status: ['RECRUITING'],
+  condition: '',
+  location: 'United States',
+  status: [],
   phase: [],
 };
 
@@ -23,7 +23,7 @@ const CheckboxGroup = ({ title, options, selected, onChange }: any) => (
     <h4 className="font-semibold text-gray-800 mb-2">{title}</h4>
     <div className="space-y-2">
       {Object.entries(options).map(([key, label]) => (
-        <label key={key} className="flex items-center gap-2 text-gray-600">
+        <label key={key} className="flex items-center gap-2 text-gray-800">
           <input
             type="checkbox"
             className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
@@ -75,11 +75,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange, is
 
       <div className="space-y-2">
         <label htmlFor="condition" className="font-semibold text-gray-800 text-sm">Condition or Disease</label>
-        <input type="text" name="condition" id="condition" value={filters.condition} onChange={handleInputChange} className="w-full border-gray-300 rounded-md shadow-sm"/>
+        <input type="text" name="condition" id="condition" value={filters.condition} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
       </div>
       <div className="space-y-2">
         <label htmlFor="location" className="font-semibold text-gray-800 text-sm">Location</label>
-        <input type="text" name="location" id="location" value={filters.location} onChange={handleInputChange} className="w-full border-gray-300 rounded-md shadow-sm"/>
+        <input type="text" name="location" id="location" value={filters.location} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
       </div>
       
       <CheckboxGroup

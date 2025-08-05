@@ -92,7 +92,7 @@ export interface FilterState {
 
 const BASE_URL = "https://clinicaltrials.gov/api/int/studies";
 
-const statusMap: { [key: string]: string } = { RECRUITING: "act", NOT_YET_RECRUITING: "not rec", COMPLETED: "com", ACTIVE_NOT_RECRUITING: "enr" };
+const statusMap: { [key: string]: string } = { RECRUITING: "rec", NOT_YET_RECRUITING: "not", COMPLETED: "com", ACTIVE_NOT_RECRUITING: "act" };
 const phaseMap: { [key:string]: string } = { EARLY_PHASE_1: "0", PHASE_1: "1", PHASE_2: "2", PHASE_3: "3", PHASE_4: "4", NOT_APPLICABLE: "NA" };
 
 
@@ -100,7 +100,7 @@ export async function fetchTrials(filters: FilterState): Promise<{ trials: Trial
   // URL construction remains the same
   const queryParams = new URLSearchParams();
   if (filters.condition) queryParams.append('cond', filters.condition);
-  if (filters.location) queryParams.append('locStr', filters.location);
+  if (filters.location) queryParams.append('locn', filters.location);
   const aggFilterParts: string[] = [];
   if (filters.status.length > 0) {
     aggFilterParts.push(`status:${filters.status.map(s => statusMap[s]).join(' ')}`);

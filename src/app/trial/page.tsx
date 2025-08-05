@@ -31,9 +31,9 @@ export default function TrialsSearchPage() {
   // Initial fetch on component mount
   useEffect(() => {
     handleFilterChange({
-      condition: 'Anal Carcinoma',
-      location: 'Lexington, North Carolina',
-      status: ['RECRUITING'],
+      condition: '',
+      location: 'United States',
+      status: [],
       phase: [],
     });
   }, []);
