@@ -47,3 +47,53 @@ export async function getTrialBySlug(slug: string): Promise<Trial | null> {
   }
   return null;
 }
+
+
+const allMockTrials: Trial[] = [
+  mockTrialData, // The one from before
+  { // Add a few more for the list
+    id: 'NCT03892451',
+    slug: 'pembrolizumab-head-neck-cancer',
+    title: 'Pembrolizumab for Head & Neck Cancer',
+    recruitingStatus: 'Recruiting',
+    sponsor: 'Merck Sharp & Dohme LLC',
+    phase: 2,
+    summary: "This trial studies the effect of pembrolizumab in treating patients with head and neck cancer that has come back...",
+    eligibility: {
+      age: '18+ Years',
+      sex: 'Any',
+      inclusion: ["Recurrent or metastatic head and neck squamous cell carcinoma."],
+      exclusion: ["Has had prior therapy with an anti-PD-1, anti-PD-L1, or anti-PD-L2 agent."],
+    },
+    locations: [
+      { id: '4', name: 'Atrium Health Levine Cancer Institute', city: 'Charlotte', state: 'NC', country: 'USA', zip: '28204', status: 'Recruiting', coords: { lat: 35.2154, lng: -80.8353 } },
+    ],
+    team: [],
+    faqs: [],
+  },
+  {
+    id: 'NCT04514457',
+    slug: 'trastuzumab-breast-cancer',
+    title: 'Trastuzumab for Breast Cancer',
+    recruitingStatus: 'Completed',
+    sponsor: 'Genentech, Inc.',
+    phase: 3,
+    summary: "A study to evaluate the efficacy and safety of trastuzumab emtansine versus trastuzumab as adjuvant therapy...",
+    eligibility: {
+      age: '18+ Years',
+      sex: 'Female',
+      inclusion: ["HER2-positive early breast cancer."],
+      exclusion: ["History of significant cardiac disease."],
+    },
+    locations: [
+      { id: '5', name: 'Novant Health Cancer Institute', city: 'Charlotte', state: 'NC', country: 'USA', zip: '28207', status: 'Completed', coords: { lat: 35.1903, lng: -80.8499 } },
+    ],
+    team: [],
+    faqs: [],
+  }
+];
+
+export async function getAllTrials(): Promise<Trial[]> {
+  await new Promise(resolve => setTimeout(resolve, 300));
+  return allMockTrials;
+}
