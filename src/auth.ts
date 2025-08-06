@@ -1,24 +1,17 @@
 // auth.ts
-import NextAuth from "next-auth"
-import Google from "next-auth/providers/google"
-import Credentials from "next-auth/providers/credentials"
+import NextAuth from 'next-auth';
+import { authConfig } from './auth.config';
+import Google from 'next-auth/providers/google';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Spread the base configuration
+  ...authConfig,
+  // Add providers here, which may rely on environment variables
   providers: [
     Google({
-
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    Credentials({
-      // You can add your own logic for basic authentication here.
-      // This is where you would handle username/password login
-      // and could add a 2FA check.
-      async authorize(credentials) {
-        // Add your user validation logic here.
-        // For example, checking against a database.
-        // If the user is valid, return the user object.
-        // Otherwise, return null.
-        return null
-      },
-    }),
+    // You can add more providers here, like Credentials
   ],
-})
+});
