@@ -23,7 +23,21 @@ export default function TrialsSearchPage() {
 
   const { data, isLoading, isError, error } = useQuery<{ trials: Trial[], totalCount: number }>({
     queryKey: ['trials', debouncedFilters, pagination],
-    queryFn: () => fetchTrialsFromApi({ ...debouncedFilters, ...pagination }),
+    queryFn: () => {
+      // --- START: Smarter API Call Logic ---
+      const apiFilters = { ...debouncedFilters, ...pagination };
+
+      // 1. Only include 'bounds' in the API call if we are in map view.
+      //    This prevents sending bbox in list view.
+      if (viewMode !== 'map') {
+        delete apiFilters.bounds;
+      }
+      
+      // 2. The fetcher in api-client.ts already checks if bounds exist,
+      //    so we don't send `bbox=undefined...` anymore.
+      return fetchTrialsFromApi(apiFilters);
+      // --- END: Smarter API Call Logic ---
+    },
     keepPreviousData: true,
   });
 

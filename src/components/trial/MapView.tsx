@@ -7,14 +7,17 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import useSupercluster from 'use-supercluster';
 import { useTrialStore } from '@/stores/trialStore';
 //import { Trial } from '@/lib/api';
-import { Trial } from '@/lib/api-client'; 
+import { ApiCluster, fetchMapData, MapData, Trial } from '@/lib/api-client'; 
+import { useDebounce } from 'use-debounce';
+import { useQuery } from '@tanstack/react-query';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
   const mapRef = useRef<MapRef>(null);
-  const { mapViewState, setMapViewState, setFilters } = useTrialStore();
+  const { mapViewState, setMapViewState, filters, setFilters } = useTrialStore();
 
+  // TODO: Check if this is needed after server clustering
   // 1. Format trial data into GeoJSON points for clustering
   const points = trials.flatMap(trial => {
     // Ensure locations exist before trying to map them
@@ -69,43 +72,67 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
 
   };
 
+
+  const [debouncedFilters] = useDebounce(filters, 500); // Debounce filter changes
+
+  const { data: mapData = [] } = useQuery<MapData>({
+    queryKey: ['mapData', debouncedFilters, Math.round(mapViewState.zoom ?? 4)],
+    queryFn: () => fetchMapData(debouncedFilters, mapViewState.zoom ?? 4),
+    keepPreviousData: true,
+  });
+  // --- END: New Data Fetching Logic ---
+
+  const handleMapChange = () => { // Single handler for load, move, and zoom
+    if (mapRef.current && mapRef.current.getMap().isStyleLoaded()) {
+      const mapBounds = mapRef.current.getBounds();
+      setFilters({ // This will trigger the debounced refetch
+        bounds: {
+          sw: { lng: mapBounds.getSouthWest().lng, lat: mapBounds.getSouthWest().lat },
+          ne: { lng: mapBounds.getNorthEast().lng, lat: mapBounds.getNorthEast().lat },
+        },
+      });
+    }
+  };
+
   return (
     <Map
       ref={mapRef}
       {...mapViewState}
+
+      onLoad={handleMapChange}
       onMove={evt => setMapViewState(evt.viewState)}
-      onMoveEnd={handleMoveEnd} // Fire event to update filters
+      onMoveEnd={handleMapChange} // Update bounds when movement stops
+      onZoomEnd={handleMapChange} // Update on zoom as well
+
       mapboxAccessToken={MAPBOX_TOKEN}
       style={{ width: '100%', height: '75vh' }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
     >
-      {/* 4. Map over CLUSTERS instead of raw trials */}
-      {clusters.map(cluster => {
-        const [longitude, latitude] = cluster.geometry.coordinates;
-        const { cluster: isCluster, point_count: pointCount } = cluster.properties;
-
-        if (isCluster) {
+      {mapData.map((item : ApiCluster | Trial)=> {
+        if (item.is_cluster) {
+          const cluster = item as ApiCluster;
           return (
-            <Marker key={`cluster-${cluster.id}`} latitude={latitude} longitude={longitude}>
+            <Marker key={`cluster-${cluster.latitude}-${cluster.longitude}`} latitude={cluster.latitude} longitude={cluster.longitude}>
               <div
                 className="flex items-center justify-center bg-purple-600 text-white rounded-full cursor-pointer"
-                style={{ width: `${30 + (pointCount / points.length) * 40}px`, height: `${30 + (pointCount / points.length) * 40}px` }}
+                style={{ width: `${30 + (cluster.point_count / 1000) * 40}px`, height: `${30 + (cluster.point_count / 1000) * 40}px` }}
                 onClick={() => {
-                  const expansionZoom = Math.min(supercluster!.getClusterExpansionZoom(cluster.id), 20);
-                  setMapViewState({ ...mapViewState, latitude, longitude, zoom: expansionZoom });
+                  setMapViewState({ ...mapViewState, latitude: cluster.latitude, longitude: cluster.longitude, zoom: (mapViewState.zoom ?? 4) + 2 });
                 }}
               >
-                {pointCount}
+                {cluster.point_count}
               </div>
             </Marker>
           );
+        } else {
+            const trial = item as Trial;
+            // A trial might have multiple locations, render a marker for each
+            return trial.locations?.map((loc, index) => (
+                 <Marker key={`${trial.id}-${index}`} latitude={loc.latitude} longitude={loc.longitude}>
+                    <div style={{ color: 'red', fontSize: '24px' }}>📍</div>
+                 </Marker>
+            ))
         }
-
-        return (
-          <Marker key={`${cluster.properties.locationKey}`} latitude={latitude} longitude={longitude}>
-            <div style={{ color: 'red', fontSize: '24px' }}>📍</div>
-          </Marker>
-        );
       })}
     </Map>
   );

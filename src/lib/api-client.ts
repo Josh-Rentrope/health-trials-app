@@ -27,8 +27,16 @@ export interface PaginatedApiResponse {
   data: ApiStudy[];
 }
 
-// --- 2. Define our App's CLEAN & RELIABLE data structure (already in api.ts) ---
+export interface ApiCluster {
+  is_cluster: true;
+  point_count: number;
+  latitude: number;
+  longitude: number;
+}
+
+
 export interface Trial {
+  is_cluster: false;
   id: string;
   title: string;
   acronym: string | null;
@@ -37,6 +45,9 @@ export interface Trial {
   phases: string[];
   locations?: { latitude: number; longitude: number }[];
 }
+
+
+export type MapData = (ApiCluster | Trial)[];
 
 // --- 3. The Normalizer Function: To transform API data into our app's data structure ---
 function normalizeApiStudy(study: ApiStudy): Trial | null {
@@ -98,4 +109,39 @@ export async function fetchTrialsFromApi(filters: FilterState & { page: number; 
     trials: normalizedTrials,
     totalCount: rawResponse.total,
   };
+}
+
+export async function fetchMapData(filters: FilterState, zoom: number): Promise<MapData> {
+  if (!filters.bounds) {
+    return []; // Don't fetch if we don't have bounds
+  }
+
+  const queryParams = new URLSearchParams();
+  const { sw, ne } = filters.bounds;
+  queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
+  queryParams.append('zoom', String(Math.round(zoom))); // Send the current zoom level
+
+  const url = `${FASTAPI_BASE_URL}/map-data?${queryParams.toString()}`;
+  console.log("Fetching from new map data URL:", url);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`FastAPI map data call failed with status: ${response.status}`);
+  }
+
+  const rawResponse = (await response.json());
+
+  // Normalize the data to match frontend types
+  return rawResponse.map((item: any) => {
+    if (item.is_cluster) {
+      return item as ApiCluster;
+    }
+    // Basic normalization for a study point
+    return {
+      is_cluster: false,
+      id: item.nct_number,
+      title: item.study_title,
+      locations: item.locations
+    } as Trial;
+  });
 }
