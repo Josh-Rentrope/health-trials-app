@@ -10,7 +10,8 @@ import { TrialList } from '@/components/trial/TrialList';
 import MapView from '@/components/trial/MapView';
 import { ViewToggle } from '@/components/trial/ViewToggle'; // Import the new toggle
 import { useTrialStore } from '@/stores/trialStore';
-import { fetchTrials, Trial } from '@/lib/api';
+//import { fetchTrials, Trial } from '@/lib/api';
+import { fetchTrialsFromApi, Trial } from '@/lib/api-client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function TrialsSearchPage() {
@@ -22,7 +23,7 @@ export default function TrialsSearchPage() {
 
   const { data, isLoading, isError, error } = useQuery<{ trials: Trial[], totalCount: number }>({
     queryKey: ['trials', debouncedFilters, pagination],
-    queryFn: () => fetchTrials({ ...debouncedFilters, ...pagination }),
+    queryFn: () => fetchTrialsFromApi({ ...debouncedFilters, ...pagination }),
     keepPreviousData: true,
   });
 

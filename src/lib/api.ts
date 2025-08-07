@@ -41,6 +41,7 @@ export interface Trial {
   status: string;
   sponsor: string;
   phases: string[];
+  locations?: { latitude: number; longitude: number }[]; 
 }
 
 

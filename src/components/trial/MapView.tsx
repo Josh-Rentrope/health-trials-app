@@ -6,7 +6,8 @@ import Map, { Marker, ViewState, MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import useSupercluster from 'use-supercluster';
 import { useTrialStore } from '@/stores/trialStore';
-import { Trial } from '@/lib/api';
+//import { Trial } from '@/lib/api';
+import { Trial } from '@/lib/api-client'; 
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -18,7 +19,7 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
   const points = trials.flatMap(trial =>
     trial.locations?.map(loc => ({
       type: 'Feature',
-      properties: { cluster: false, trialId: trial.nct_number },
+      properties: { cluster: false, trialId: trial.id },
       geometry: { type: 'Point', coordinates: [loc.longitude, loc.latitude] },
     })) ?? []
   );
