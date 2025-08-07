@@ -16,13 +16,33 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
   const { mapViewState, setMapViewState, setFilters } = useTrialStore();
 
   // 1. Format trial data into GeoJSON points for clustering
-  const points = trials.flatMap(trial =>
-    trial.locations?.map(loc => ({
-      type: 'Feature',
-      properties: { cluster: false, trialId: trial.id },
-      geometry: { type: 'Point', coordinates: [loc.longitude, loc.latitude] },
-    })) ?? []
-  );
+  const points = trials.flatMap(trial => {
+    // Ensure locations exist before trying to map them
+    if (!trial.locations) return [];
+
+    return trial.locations.flatMap((loc, index) => {
+      // 1. Filter out invalid locations (null, 0,0 coordinates, etc.)
+      if (!loc || !loc.latitude || !loc.longitude) {
+        return []; // Return an empty array to skip this location
+      }
+
+      // 2. If the location is valid, create the GeoJSON point
+      return [{
+        type: 'Feature',
+        properties: {
+          cluster: false,
+          trialId: trial.id,
+          // 3. Create a unique composite key for this specific location
+          locationKey: `${trial.id}-${index}`,
+          // 4. Add extra data for the upcoming popup feature
+          trialTitle: trial.title,
+          trialStatus: trial.status,
+        },
+        geometry: { type: 'Point', coordinates: [loc.longitude, loc.latitude] },
+      }];
+    });
+  });
+  
 
   const bounds = mapRef.current ? mapRef.current.getMap().getBounds().toArray().flat() as [number, number, number, number] : undefined;
 
@@ -36,12 +56,12 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
 
   // 3. Update global filters when the map stops moving
   const handleMoveEnd = (event:any) => {
-    if (mapRef.current) {
-      const bounds = mapRef.current.getBounds();
+    if (mapRef.current && mapRef.current.getMap().isStyleLoaded()) {
+      const mapBounds = mapRef.current.getBounds();
       setFilters({
         bounds: {
-          sw: bounds.getSouthWest().toArray() as [number, number],
-          ne: bounds.getNorthEast().toArray() as [number, number],
+          sw: { lng: mapBounds.getSouthWest().lng, lat: mapBounds.getSouthWest().lat },
+          ne: { lng: mapBounds.getNorthEast().lng, lat: mapBounds.getNorthEast().lat },
         },
       });
     }
@@ -72,7 +92,7 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
                 style={{ width: `${30 + (pointCount / points.length) * 40}px`, height: `${30 + (pointCount / points.length) * 40}px` }}
                 onClick={() => {
                   const expansionZoom = Math.min(supercluster!.getClusterExpansionZoom(cluster.id), 20);
-                  setViewState({ ...viewState, latitude, longitude, zoom: expansionZoom });
+                  setMapViewState({ ...mapViewState, latitude, longitude, zoom: expansionZoom });
                 }}
               >
                 {pointCount}
@@ -82,7 +102,7 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
         }
 
         return (
-          <Marker key={`trial-${cluster.properties.trialId}`} latitude={latitude} longitude={longitude}>
+          <Marker key={`${cluster.properties.locationKey}`} latitude={latitude} longitude={longitude}>
             <div style={{ color: 'red', fontSize: '24px' }}>📍</div>
           </Marker>
         );
