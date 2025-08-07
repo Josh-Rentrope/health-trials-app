@@ -5,10 +5,11 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { FilterState } from '@/lib/api';
 import { SlidersHorizontal } from 'lucide-react';
+import { useTrialStore } from '@/stores/trialStore';
 
 type FilterSidebarProps = {
-  onFilterChange: (filters: FilterState) => void;
-  isLoading: boolean;
+  onFilterChange?: (filters: FilterState) => void;
+  isLoading?: boolean;
 };
 
 const initialFilters: FilterState = {
@@ -37,32 +38,39 @@ const CheckboxGroup = ({ title, options, selected, onChange }: any) => (
   </div>
 );
 
+
+
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange, isLoading }) => {
-  const [filters, setFilters] = useState<FilterState>(initialFilters);
+  const { filters, setFilters } = useTrialStore();
 
   const handleCheckboxChange = (category: 'status' | 'phase', value: string) => {
-    setFilters(prev => {
-      const currentValues = prev[category];
-      const newValues = currentValues.includes(value)
-        ? currentValues.filter(v => v !== value)
-        : [...currentValues, value];
-      return { ...prev, [category]: newValues };
-    });
+    const currentValues = filters[category];
+    const newValues = currentValues.includes(value)
+      ? currentValues.filter((v) => v !== value)
+      : [...currentValues, value];
+    // Update the global store with the new array for the specific category
+    setFilters({ [category]: newValues });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleApply = () => {
-    onFilterChange(filters);
+    // Update the global store with the new value for the specific input
+    setFilters({ [name]: value });
   };
   
   const handleClear = () => {
+    // Reset the filters in the global store to their initial state
     setFilters(initialFilters);
-    onFilterChange(initialFilters);
   }
+
+
+  const handleApply = () => {
+    if(onFilterChange){
+      onFilterChange(filters);
+    }
+    
+  };
+  
 
   return (
     <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-md space-y-6">
