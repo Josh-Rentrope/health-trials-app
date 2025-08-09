@@ -78,6 +78,7 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
   };
 
   return {
+    is_cluster: false,
     id: study.nct_number,
     title: study.study_title,
     acronym: null, // The new API doesn't provide an acronym
@@ -110,19 +111,19 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
 }
 
 
-export async function fetchTrialsFromApi(filters: FilterState & { page: number; limit: number }): Promise<{ trials: Trial[], totalCount: number }> {
+export async function fetchTrialsFromApi(filters: FilterState & { page?: number; limit?: number }): Promise<{ trials: Trial[], totalCount: number }> {
   const queryParams = new URLSearchParams();
   if (filters.condition) queryParams.append('q', filters.condition);
-  if (filters.status.length > 0) queryParams.append('status', filters.status.join(','));
-  if (filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
+  if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
+  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
 
   if (filters.bounds) {
       const { sw, ne } = filters.bounds;
       queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
   }
 
-  queryParams.append('page', String(filters.page + 1));
-  queryParams.append('limit', '10');
+  queryParams.append('page', String(filters.page ? filters.page + 1 : 1));
+  queryParams.append('limit', String(filters.limit || 10));
 
   const url = `${API_BASE_URL}/studies?${queryParams.toString()}`;
   console.log("Fetching from FastAPI URL:", url);
@@ -152,6 +153,12 @@ export async function fetchMapData(filters: FilterState, zoom: number): Promise<
   queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
   queryParams.append('zoom', String(Math.round(zoom)));
 
+  // Append other filters
+  if (filters.condition) queryParams.append('q', filters.condition);
+  if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
+  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
+
+
   const url = `${API_BASE_URL}/studies/map-data?${queryParams.toString()}`;
   console.log("Fetching from new map data URL:", url);
 
@@ -162,16 +169,17 @@ export async function fetchMapData(filters: FilterState, zoom: number): Promise<
 
   const rawResponse = (await response.json());
 
+  // The backend now returns objects that match ApiCluster or a simplified Trial structure
+  // We need to normalize the trials to our frontend Trial type
   return rawResponse.map((item: any) => {
-    if (item.is_cluster) return item as ApiCluster;
-    return {
-      is_cluster: false,
-      id: item.nct_number,
-      title: item.study_title,
-      locations: item.locations
-    } as Trial;
-  });
+    if (item.is_cluster) {
+      return item as ApiCluster;
+    }
+    // It's a study from the backend, normalize it
+    return normalizeApiStudy(item as ApiStudy);
+  }).filter(Boolean); // Filter out any nulls from normalization
 }
+
 
 // --- NEW: API Functions for Chat ---
 export async function fetchConversations(token: string): Promise<Conversation[]> {
