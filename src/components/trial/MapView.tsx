@@ -80,7 +80,7 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
     queryFn: () => fetchMapData(debouncedFilters, mapViewState.zoom ?? 4),
     keepPreviousData: true,
   });
-  // --- END: New Data Fetching Logic ---
+  
 
   const handleMapChange = () => { // Single handler for load, move, and zoom
     if (mapRef.current && mapRef.current.getMap().isStyleLoaded()) {
@@ -105,7 +105,7 @@ const MapView: React.FC<{ trials: Trial[] }> = ({ trials }) => {
       onZoomEnd={handleMapChange} // Update on zoom as well
 
       mapboxAccessToken={MAPBOX_TOKEN}
-      style={{ width: '100%', height: '75vh' }}
+      style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
     >
       {mapData.map((item : ApiCluster | Trial)=> {

@@ -156,18 +156,20 @@ export default function TrialsSearchPage() {
         </div>
       ) : (
         // MAP VIEW LAYOUT
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8" style={{ height: '75vh' }}>
-          <div className="lg:col-span-5 flex flex-col h-full">
-            <aside>
+        <div className="relative" style={{ height: '85vh' }}>
+          {/* Map Component fills the entire container */}
+          <div className="absolute inset-0 z-0">
+            <MapView trials={data?.trials ?? []} />
+          </div>
+
+          {/* Overlay for Filters and List */}
+          <div className="absolute top-0 left-0 z-10 h-full w-full lg:w-[450px] p-4 flex flex-col gap-4">
+            <div className="flex-shrink-0">
               <FilterSidebar />
-            </aside>
-            <main className="mt-6 flex-grow overflow-y-auto">
-              {/* In map view, the list shows all results, not just the paginated ones */}
+            </div>
+            <main className="flex-grow overflow-y-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
               <TrialList trials={data?.trials ?? []} isLoading={isLoading} error={error?.message} />
             </main>
-          </div>
-          <div className="lg:col-span-7 h-full">
-            <MapView trials={data?.trials ?? []} />
           </div>
         </div>
       )}
