@@ -27,7 +27,7 @@ export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error }
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1  gap-6">
         {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
       </div>
     );
@@ -40,7 +40,7 @@ export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error }
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1  gap-6">
       {validTrials.map((trial) => (
         // THE FIX:
         // 1. The key uses the reliable 'trial.id'.

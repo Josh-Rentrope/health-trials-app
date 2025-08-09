@@ -72,13 +72,12 @@ export default function TrialsSearchPage() {
   const { filters, pagination, setPagination } = useTrialStore();
   const [debouncedFilters] = useDebounce(filters, 500);
 
-  // ADDED: State to manage the current view mode
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const { data, isLoading, isError, error } = useQuery<{ trials: Trial[], totalCount: number }>({
     queryKey: ['trials', debouncedFilters, pagination],
     queryFn: () => {
-      // --- START: Smarter API Call Logic ---
+      
       const apiFilters = { ...debouncedFilters, ...pagination };
 
       // 1. Only include 'bounds' in the API call if we are in map view.
@@ -90,7 +89,7 @@ export default function TrialsSearchPage() {
       // 2. The fetcher in api-client.ts already checks if bounds exist,
       //    so we don't send `bbox=undefined...` anymore.
       return fetchTrialsFromApi(apiFilters);
-      // --- END: Smarter API Call Logic ---
+
     },
     keepPreviousData: true,
   });
@@ -117,12 +116,27 @@ export default function TrialsSearchPage() {
 
       {/* Conditionally render the entire layout based on viewMode */}
       {viewMode === 'list' ? (
-        // LIST VIEW LAYOUT
+        
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <aside className="lg:col-span-1">
             <FilterSidebar />
           </aside>
           <main className="lg:col-span-3">
+
+            {!isLoading && trials.length > 0 && (
+              <ReactPaginate
+                forcePage={pagination.page}
+                previousLabel={<ChevronLeft size={18} />}
+                nextLabel={<ChevronRight size={18} />}
+                pageCount={pageCount}
+                onPageChange={handlePageClick}
+                containerClassName={'flex justify-center items-center gap-2 mb-6'}
+                activeClassName={'bg-purple-600 text-white'}
+                pageClassName={'px-3 py-1 rounded-md'}
+                previousClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}
+                nextClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}
+              />
+            )}
             <TrialList trials={trials} isLoading={isLoading} error={error?.message} />
             {!isLoading && trials.length > 0 && (
               <ReactPaginate
