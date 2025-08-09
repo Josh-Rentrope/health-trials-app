@@ -14,6 +14,60 @@ import { useTrialStore } from '@/stores/trialStore';
 import { fetchTrialsFromApi, Trial } from '@/lib/api-client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+
+import  ChatBot, { Flow } from 'react-chatbotify';
+import dynamic from 'next/dynamic';
+import { useAuth } from '@clerk/nextjs';
+
+const TrialAssistantChatbot = () => {
+    const { getToken } = useAuth();
+    const { filters, setFilters } = useTrialStore();
+
+    // CORRECTED: The argument 'params' is renamed by destructuring to avoid conflict with Next.js
+    const handleSearchAction = async ({ userInput }: { userInput: string }) => {
+        const input = userInput.toLowerCase();
+        // Simple NLP: look for keywords
+        if (input.includes("phase 1")) setFilters({ phase: ["PHASE_1"] });
+        else if (input.includes("phase 2")) setFilters({ phase: ["PHASE_2"] });
+        else if (input.includes("recruiting")) setFilters({ status: ["RECRUITING"] });
+        else if (input.includes("california")) setFilters({ location: "California" });
+        else {
+            // As a fallback, use the input as a condition search
+            setFilters({ condition: userInput });
+        }
+    };
+
+    const flow: Flow = {
+        start: {
+            message: "Hello! I'm your trial search assistant. How can I help you find a clinical trial today?",
+            path: "query_loop",
+        },
+        query_loop: {
+            message: () => {
+                const condition = filters.condition;
+                if (condition) {
+                    return `I see you are looking for trials related to "${condition}". You can ask me to "show recruiting trials" or "find trials in California".`;
+                }
+                return "You can ask me to find trials for a condition, status, or location.";
+            },
+            path: "process_query",
+        },
+        process_query: {
+            user: true,
+            action: handleSearchAction, // This now passes the renamed argument
+            path: "query_loop",
+        },
+    };
+
+    return <ChatBot flow={flow} />;
+};
+
+// Dynamically import the chatbot to ensure it's client-side only
+const DynamicChatBot = dynamic(() => Promise.resolve(TrialAssistantChatbot), {
+    ssr: false,
+});
+
+
 export default function TrialsSearchPage() {
   const { filters, pagination, setPagination } = useTrialStore();
   const [debouncedFilters] = useDebounce(filters, 500);
@@ -52,6 +106,9 @@ export default function TrialsSearchPage() {
 
   return (
     <div className="p-4">
+      
+      <DynamicChatBot />
+
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Find a Clinical Trial</h1>
         {/* Render the toggle switch in the header */}

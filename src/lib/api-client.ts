@@ -49,6 +49,23 @@ export interface Trial {
 
 export type MapData = (ApiCluster | Trial)[];
 
+export interface ChatMessage {
+    id: string;
+    conversation_id: string;
+    sender_id: string;
+    content: string;
+    sent_at: string;
+}
+
+export interface Conversation {
+    id: string;
+    created_at: string;
+    updated_at: string;
+    participants: { user_id: string }[];
+}
+
+
+
 // --- 3. The Normalizer Function: To transform API data into our app's data structure ---
 function normalizeApiStudy(study: ApiStudy): Trial | null {
   if (!study || !study.nct_number || !study.study_title) {
@@ -75,23 +92,39 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
 }
 
 // --- 4. The API Fetcher ---
-const FASTAPI_BASE_URL = "http://127.0.0.1:8000/studies";
+const API_BASE_URL = "http://127.0.0.1:8000";
+
+// Helper for making authenticated requests
+async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
+    const headers = {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`API call failed with status ${response.status}: ${errorBody}`);
+    }
+    return response.json();
+}
+
 
 export async function fetchTrialsFromApi(filters: FilterState & { page: number; limit: number }): Promise<{ trials: Trial[], totalCount: number }> {
   const queryParams = new URLSearchParams();
   if (filters.condition) queryParams.append('q', filters.condition);
   if (filters.status.length > 0) queryParams.append('status', filters.status.join(','));
   if (filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
-  
+
   if (filters.bounds) {
       const { sw, ne } = filters.bounds;
       queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
   }
 
-  queryParams.append('page', String(filters.page + 1)); // FastAPI is 1-indexed, react-paginate is 0-indexed
-  queryParams.append('limit', '10'); // Per your requirement
+  queryParams.append('page', String(filters.page + 1));
+  queryParams.append('limit', '10');
 
-  const url = `${FASTAPI_BASE_URL}?${queryParams.toString()}`;
+  const url = `${API_BASE_URL}/studies?${queryParams.toString()}`;
   console.log("Fetching from FastAPI URL:", url);
 
   const response = await fetch(url);
@@ -112,16 +145,14 @@ export async function fetchTrialsFromApi(filters: FilterState & { page: number; 
 }
 
 export async function fetchMapData(filters: FilterState, zoom: number): Promise<MapData> {
-  if (!filters.bounds) {
-    return []; // Don't fetch if we don't have bounds
-  }
+  if (!filters.bounds) return [];
 
   const queryParams = new URLSearchParams();
   const { sw, ne } = filters.bounds;
   queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
-  queryParams.append('zoom', String(Math.round(zoom))); // Send the current zoom level
+  queryParams.append('zoom', String(Math.round(zoom)));
 
-  const url = `${FASTAPI_BASE_URL}/map-data?${queryParams.toString()}`;
+  const url = `${API_BASE_URL}/studies/map-data?${queryParams.toString()}`;
   console.log("Fetching from new map data URL:", url);
 
   const response = await fetch(url);
@@ -131,12 +162,8 @@ export async function fetchMapData(filters: FilterState, zoom: number): Promise<
 
   const rawResponse = (await response.json());
 
-  // Normalize the data to match frontend types
   return rawResponse.map((item: any) => {
-    if (item.is_cluster) {
-      return item as ApiCluster;
-    }
-    // Basic normalization for a study point
+    if (item.is_cluster) return item as ApiCluster;
     return {
       is_cluster: false,
       id: item.nct_number,
@@ -144,4 +171,16 @@ export async function fetchMapData(filters: FilterState, zoom: number): Promise<
       locations: item.locations
     } as Trial;
   });
+}
+
+// --- NEW: API Functions for Chat ---
+export async function fetchConversations(token: string): Promise<Conversation[]> {
+    return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations`, token);
+}
+
+export async function postMessage(convId: string, content: string, token: string): Promise<ChatMessage> {
+    return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, token, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+    });
 }

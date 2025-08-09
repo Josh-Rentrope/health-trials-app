@@ -1,11 +1,13 @@
 // components/trials/FilterSidebar.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { FilterState } from '@/lib/api';
-import { SlidersHorizontal } from 'lucide-react';
+import { Loader2, Mic, SlidersHorizontal } from 'lucide-react';
 import { useTrialStore } from '@/stores/trialStore';
+
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 type FilterSidebarProps = {
   onFilterChange?: (filters: FilterState) => void;
@@ -17,6 +19,7 @@ const initialFilters: FilterState = {
   location: 'United States',
   status: [],
   phase: [],
+  bounds: null
 };
 
 const CheckboxGroup = ({ title, options, selected, onChange }: any) => (
@@ -43,6 +46,29 @@ const CheckboxGroup = ({ title, options, selected, onChange }: any) => (
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange, isLoading }) => {
   const { filters, setFilters } = useTrialStore();
 
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
+
+
+  useEffect(() => {
+    if (transcript) {
+      setFilters({ condition: transcript });
+    }
+  }, [transcript, setFilters]);
+
+  const handleListen = () => {
+    if (listening) {
+      SpeechRecognition.stopListening();
+    } else {
+      resetTranscript();
+      SpeechRecognition.startListening({ continuous: false });
+    }
+  };
+
   const handleCheckboxChange = (category: 'status' | 'phase', value: string) => {
     const currentValues = filters[category];
     const newValues = currentValues.includes(value)
@@ -61,6 +87,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange, is
   const handleClear = () => {
     // Reset the filters in the global store to their initial state
     setFilters(initialFilters);
+    resetTranscript();
   }
 
 
@@ -83,7 +110,15 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ onFilterChange, is
 
       <div className="space-y-2">
         <label htmlFor="condition" className="font-semibold text-gray-800 text-sm">Condition or Disease</label>
-        <input type="text" name="condition" id="condition" value={filters.condition} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
+        <div className="flex items-center gap-2">
+          <input type="text" name="condition" id="condition" value={filters.condition} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
+          {browserSupportsSpeechRecognition && (
+            <button onClick={handleListen} className="p-2 border rounded-md hover:bg-gray-100">
+              {listening ? <Loader2 className="animate-spin" /> : <Mic />}
+            </button>
+          )}
+        </div>
+        
       </div>
       <div className="space-y-2">
         <label htmlFor="location" className="font-semibold text-gray-800 text-sm">Location</label>

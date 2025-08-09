@@ -89,6 +89,7 @@ export interface FilterState {
   location: string;
   status: string[];
   phase: string[];
+  bounds?: any; //TODO: fix type to show bound variables
 }
 
 const BASE_URL = "https://clinicaltrials.gov/api/int/studies";
