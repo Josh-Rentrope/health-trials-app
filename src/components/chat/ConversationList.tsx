@@ -71,7 +71,7 @@ export function ConversationList() {
         </button>
       </div>
 
-      {isLoading && <p>Loading conversations...</p>}
+      {isLoading && <p className="text-gray-800">Loading conversations...</p>}
       {error && <p className="text-red-500">Error: {error.message}</p>}
 
       <ul className="space-y-2">

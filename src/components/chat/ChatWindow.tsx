@@ -98,11 +98,11 @@ const renderMessageContent = (content: string) => {
           {messages?.map((msg) => (
             <div
               key={msg.id}
-              className={`flex ${msg.sender_id === userId ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${(msg.sender_id === userId || msg.sender_id != "00000000-0000-0000-0000-000000000000") ? 'justify-end' : 'justify-start'}`}
             >
               <div
                 className={`max-w-md p-3 rounded-lg ${
-                  msg.sender_id === userId ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
+                  (msg.sender_id === userId || msg.sender_id != "00000000-0000-0000-0000-000000000000") ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
                 }`}
               >
 

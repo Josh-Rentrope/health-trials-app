@@ -7,7 +7,7 @@ import { ChatWindow } from '@/components/chat/ChatWindow';
 import { useChatStore } from '@/stores/chatStore';
 
 export default function ChatPage() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   const { activeConversationId } = useChatStore();
 
   if (!isLoaded) {
