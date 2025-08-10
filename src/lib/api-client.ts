@@ -115,7 +115,7 @@ export async function fetchTrialsFromApi(filters: FilterState & { page?: number;
   const queryParams = new URLSearchParams();
   if (filters.condition) queryParams.append('q', filters.condition);
   if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
-  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
+  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(',').replace("_", ""));
 
   if (filters.bounds) {
       const { sw, ne } = filters.bounds;

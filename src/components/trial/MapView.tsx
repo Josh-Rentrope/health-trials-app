@@ -11,7 +11,7 @@ import { useDebounce } from 'use-debounce';
 import { useQuery } from '@tanstack/react-query';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-const CLUSTER_THRESHOLD = 12; // Same threshold as the backend
+const CLUSTER_THRESHOLD = 12;
 
 type GeoJSONPoint = GeoJSON.Feature<GeoJSON.Point, {
   cluster: false;
@@ -20,49 +20,40 @@ type GeoJSONPoint = GeoJSON.Feature<GeoJSON.Point, {
   trialTitle: string;
 }>;
 
+// --- Define component props to accept the callback ---
+type MapViewProps = {
+  onMapMove?: () => void;
+};
 
-const MapView: React.FC<{}> = () => {
+const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   const mapRef = useRef<MapRef>(null);
   const { mapViewState, setMapViewState, filters, setFilters } = useTrialStore();
   const [debouncedViewState] = useDebounce(mapViewState, 200);
-  const [debouncedFilters] = useDebounce(filters, 500); // 500ms delay
+  const [debouncedFilters] = useDebounce(filters, 500);
 
   const bounds = mapRef.current ? mapRef.current.getMap().getBounds().toArray().flat() as [number, number, number, number] : undefined;
 
   const { data: mapData } = useQuery({
-    // The query key now uses the debounced filters
     queryKey: ['mapData', debouncedFilters, Math.round(mapViewState.zoom ?? 0)],
     queryFn: async () => {
-      // Ensure we use the debounced bounds for the API call
       if (!debouncedFilters.bounds) return [];
-
       const currentZoom = Math.round(mapViewState.zoom ?? 0);
-
       if (currentZoom < CLUSTER_THRESHOLD) {
-        // Zoomed out: Fetch pre-clustered data from the server
         return fetchMapData(debouncedFilters, currentZoom);
       } else {
-        // Zoomed in: Fetch individual trials for client-side clustering
         const { trials } = await fetchTrialsFromApi({ ...debouncedFilters, limit: 1000, page: 0 });
         return trials;
       }
     },
-    // The query is enabled only when we have (debounced) bounds
     enabled: !!debouncedFilters.bounds,
     keepPreviousData: true,
   });
 
-  // --- Client-side clustering setup (only used when zoomed in) ---
   const points: GeoJSONPoint[] = (mapData && (mapViewState.zoom ?? 0) >= CLUSTER_THRESHOLD)
     ? (mapData as Trial[]).flatMap(trial =>
         (trial.locations || []).map((loc, index) => ({
           type: 'Feature',
-          properties: {
-            cluster: false,
-            trialId: trial.id,
-            locationKey: `${trial.id}-${index}`,
-            trialTitle: trial.title,
-          },
+          properties: { cluster: false, trialId: trial.id, locationKey: `${trial.id}-${index}`, trialTitle: trial.title },
           geometry: { type: 'Point', coordinates: [loc.longitude, loc.latitude] },
         }))
       )
@@ -74,10 +65,13 @@ const MapView: React.FC<{}> = () => {
     zoom: mapViewState.zoom,
     options: { radius: 75, maxZoom: 20 },
   });
-  // --- Handlers ---
-  // This handler now updates the "live" filters rapidly.
-  // The API call will wait for the debounced version.
+
   const handleMapInteraction = () => {
+    // --- Call the new prop to notify parent of interaction ---
+    if (onMapMove) {
+      onMapMove();
+    }
+
     if (mapRef.current) {
       const newBounds = mapRef.current.getMap().getBounds();
       setFilters({
@@ -101,14 +95,12 @@ const MapView: React.FC<{}> = () => {
       style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
     >
-      {/* --- RENDER LOGIC --- */}
-      { (mapViewState.zoom ?? 0) < CLUSTER_THRESHOLD ? (
-        // A) Zoomed Out: Render server-provided clusters/points
+      {/* RENDER LOGIC (Unchanged) */}
+      {(mapViewState.zoom ?? 0) < CLUSTER_THRESHOLD ? (
         mapData?.map((item: ApiCluster | Trial) => {
           if (item.is_cluster) {
-            const maxCircleSize = 80; // Max diameter in pixels
+            const maxCircleSize = 80;
             const circleSize = Math.min(maxCircleSize, 30 + (item.point_count / 100) * 20);
-
             return (
               <Marker key={`server-cluster-${item.latitude}-${item.longitude}`} latitude={item.latitude} longitude={item.longitude}>
                 <div
@@ -121,7 +113,6 @@ const MapView: React.FC<{}> = () => {
               </Marker>
             );
           }
-          // Render individual trials if server sends them at low zoom
           return (item as Trial).locations?.map((loc, index) => (
             <Marker key={`${(item as Trial).id}-${index}`} latitude={loc.latitude} longitude={loc.longitude}>
               <div style={{ color: 'orange', fontSize: '24px' }}>📍</div>
@@ -129,11 +120,9 @@ const MapView: React.FC<{}> = () => {
           ));
         })
       ) : (
-        // B) Zoomed In: Render client-side clusters/points from useSupercluster
         clusters.map(cluster => {
           const [longitude, latitude] = cluster.geometry.coordinates;
           const { cluster: isClientCluster, point_count: pointCount } = cluster.properties;
-
           if (isClientCluster) {
             return (
               <Marker key={`client-cluster-${cluster.id}`} latitude={latitude} longitude={longitude}>
