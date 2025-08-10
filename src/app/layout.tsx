@@ -10,6 +10,8 @@ import {
 } from '@clerk/nextjs'
 
 import { Providers } from './providers'; // Import the new provider
+import Link from 'next/link'; 
+
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -58,6 +60,9 @@ export default function RootLayout({
                     </SignUpButton>
                   </SignedOut>
                   <SignedIn>
+                    <Link href="/chat" className="font-medium text-gray-600 hover:text-blue-600">
+                        Chat Assistant
+                      </Link>
                     <UserButton />
                   </SignedIn>
                 </nav>

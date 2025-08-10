@@ -102,10 +102,29 @@ async function fetchWithAuth(url: string, token: string, options: RequestInit = 
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
     };
+
     const response = await fetch(url, { ...options, headers });
     if (!response.ok) {
         const errorBody = await response.text();
         throw new Error(`API call failed with status ${response.status}: ${errorBody}`);
+    }
+    return response.json();
+}
+
+async function fetchWithEmail(url: string, email: string, options: RequestInit = {}) {
+    const headers = {
+        ...options.headers,
+        'X-User-Email': "e1656d48-b566-4731-80b5-efe9ad37c28c", // Add the custom email header
+        'Content-Type': 'application/json',
+    };
+    const response = await fetch(url, { ...options, headers });
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`API call failed with status ${response.status}: ${errorBody}`);
+    }
+    // Handle cases with no JSON response body (e.g., 204 No Content)
+    if (response.status === 204) {
+        return null;
     }
     return response.json();
 }
@@ -181,13 +200,65 @@ export async function fetchMapData(filters: FilterState, zoom: number): Promise<
 }
 
 
-// --- NEW: API Functions for Chat ---
-export async function fetchConversations(token: string): Promise<Conversation[]> {
+// --- API Functions for Chat (Authenticated) ---
+export function getConversations(token: string): Promise<Conversation[]> {
     return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations`, token);
 }
 
-export async function postMessage(convId: string, content: string, token: string): Promise<ChatMessage> {
+export function createConversation(token: string): Promise<Conversation> {
+  return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations`, token, {
+    method: 'POST',
+    // The backend automatically adds the creator, so the body can be simple
+    body: JSON.stringify({ participant_ids: [] }),
+  });
+};
+
+export function deleteConversation(token: string, convId: string): Promise<null> {
+    return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}`, token, { method: 'DELETE' });
+};
+
+export function getMessages(token: string, convId: string): Promise<ChatMessage[]> {
+  return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, token, { method: 'GET' });
+};
+
+export function postMessage(token: string, convId: string, content: string): Promise<ChatMessage> {
     return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, token, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+    });
+}
+
+export async function getConversations_demo(email: string): Promise<Conversation[]> {
+    return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations`, email);
+}
+
+export function deleteConversation_demo(email: string, convId: string): Promise<null> {
+    return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/${convId}`, email, { method: 'DELETE' });
+};
+
+    /**
+   * ## NEW: Creates a new conversation.
+   * @param currentUserEmail The email of the user initiating the conversation.
+   * @param participantEmails An array of other participants' emails.
+   * @returns The newly created conversation object.
+   */
+export function createConversation_demo(currentUserEmail: string, participantEmails: string[]): Promise<Conversation> {
+      const payload = {
+          participant_ids: participantEmails,
+      };
+      return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/create`, currentUserEmail, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+      });
+}
+
+export function getMessages_demo(email: string, convId: string): Promise<ChatMessage[]> {
+  return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, email, { method: 'GET' });
+};
+
+
+export async function postMessage_demo(convId: string, content: string, email: string): Promise<ChatMessage> {
+    return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, email, {
         method: 'POST',
         body: JSON.stringify({ content }),
     });
