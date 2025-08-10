@@ -60,7 +60,7 @@ export function ConversationList() {
 
   return (
     <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 text-gray-800">
         <h2 className="text-xl font-bold">Chats</h2>
         <button 
             onClick={() => newConversationMutation.mutate()} 
@@ -80,7 +80,7 @@ export function ConversationList() {
             key={conv.id}
             onClick={() => setActiveConversationId(conv.id)}
             className={`p-3 rounded-lg cursor-pointer flex justify-between items-center ${
-              activeConversationId === conv.id ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'
+              activeConversationId === conv.id ? 'bg-blue-700 text-white' : 'hover:bg-gray-200 text-gray-800'
             }`}
           >
             <div>

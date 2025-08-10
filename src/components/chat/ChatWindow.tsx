@@ -65,6 +65,29 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     }
   };
 
+  // Function to parse message content for NCT numbers
+const renderMessageContent = (content: string) => {
+  const nctRegex = /(NCT\d{8,})/g;
+  const parts = content.split(nctRegex);
+
+  return parts.map((part, index) => {
+    if (part.match(nctRegex)) {
+      return (
+        <a
+          key={index}
+          href={`/trials/${part}`} // Assuming a route like /trials/NCT...
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-bold underline text-blue-300 hover:text-blue-100"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Message Display Area */}
@@ -82,16 +105,27 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
                   msg.sender_id === userId ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'
                 }`}
               >
-                {msg.content}
+
+                {renderMessageContent(msg.content)}
+                
               </div>
             </div>
           ))}
+
+          {postMessageMutation.isLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-md p-3 rounded-lg bg-gray-200 text-gray-800 animate-pulse">
+                Assistant is typing...
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
       </div>
 
       {/* Message Input Form */}
-      <div className="p-4 border-t bg-gray-50">
+      <div className="p-4 border-t text-gray-800 bg-gray-50">
         <form onSubmit={handleSendMessage} className="flex items-center gap-4">
           <input
             type="text"

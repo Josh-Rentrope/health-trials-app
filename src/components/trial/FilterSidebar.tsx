@@ -158,7 +158,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           
           <CheckboxGroup
             title="Recruitment Status"
-            options={{ RECRUITING: "Recruiting", NOT_YET_RECRUITING: "Not yet recruiting", COMPLETED: "Completed" }}
+            options={{ RECRUITING: "Recruiting", NOT: "Not yet recruiting", COMPLETED: "Completed" }}
             selected={filters.status}
             onChange={(value: string) => handleCheckboxChange('status', value)}
           />
