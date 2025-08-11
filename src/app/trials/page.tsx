@@ -11,7 +11,7 @@ import MapView from '@/components/trial/MapView';
 import { ViewToggle } from '@/components/trial/ViewToggle';
 import { useTrialStore } from '@/stores/trialStore';
 import { fetchTrialsFromApi, Trial } from '@/lib/api-client';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import ChatBot, { Flow } from 'react-chatbotify';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@clerk/nextjs';
@@ -60,6 +60,16 @@ const DynamicChatBot = dynamic(() => Promise.resolve(TrialAssistantChatbot), {
     ssr: false,
 });
 
+const MapViewCSR = dynamic(() => import('@/components/trial/MapView'), {
+  ssr: false, 
+  loading: () => (
+    <div className="flex items-center justify-center w-full h-full bg-gray-100">
+      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <p className="ml-2 text-gray-600">Loading Map...</p>
+    </div>
+  ),
+});
+
 
 export default function TrialsSearchPage() {
   const { filters, pagination, setPagination } = useTrialStore();
@@ -92,7 +102,7 @@ export default function TrialsSearchPage() {
   return (
     <div className="p-4">
       
-      <DynamicChatBot />
+      {/* <DynamicChatBot /> */}
 
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Find a Clinical Trial</h1>
@@ -142,7 +152,7 @@ export default function TrialsSearchPage() {
         <div className="relative" style={{ height: '85vh' }}>
           <div className="absolute inset-0 z-0">
             {/* --- Pass handler to collapse sidebar on map move --- */}
-            <MapView onMapMove={() => setIsSidebarCollapsed(true)} />
+            <MapViewCSR onMapMove={() => setIsSidebarCollapsed(true)} />
           </div>
 
           {/* Overlay for Filters and List */}

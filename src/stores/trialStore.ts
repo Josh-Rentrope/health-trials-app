@@ -8,6 +8,9 @@ export interface BoundingBox {
   ne: { lng: number; lat: number };
 }
 
+// --- NEW: Define the possible view modes ---
+export type ViewMode = 'trials' | 'correlation';
+
 export interface FilterState {
   condition: string;
   location: string;
@@ -25,11 +28,13 @@ interface TrialState {
     limit: number;
   };
 
+  viewMode: ViewMode;
   mapViewState: Partial<ViewState>;
 
   setFilters: (newFilters: Partial<FilterState>) => void;
   setPagination: (newPagination: Partial<TrialState['pagination']>) => void;
 
+  setViewMode: (mode: ViewMode) => void;
   setMapViewState: (viewState: Partial<ViewState>) => void;
   resetFilters: () => void;
 }
@@ -41,6 +46,8 @@ const initialFilters: FilterState = {
   phase: [],
   correlationCondition: '',
   demographicVariable: '',
+  
+  
 };
 
 export const useTrialStore = create<TrialState>((set) => ({
@@ -50,13 +57,14 @@ export const useTrialStore = create<TrialState>((set) => ({
     status: [],
     phase: [],
     correlationCondition:"",
-    demographicVariable:""
+    demographicVariable:"",
   },
   pagination: {
     page: 0,
     limit: 50, // Set how many trials your API should return per page
   },
 
+  viewMode: 'trials', // Default to trials view
   mapViewState: {
     longitude: -98.5795,
     latitude: 39.8283,
@@ -68,6 +76,7 @@ export const useTrialStore = create<TrialState>((set) => ({
   setPagination: (newPagination) =>
     set((state) => ({ pagination: { ...state.pagination, ...newPagination } })),
   
+  setViewMode: (mode) => set({ viewMode: mode }),
   setMapViewState: (viewState) => set({ mapViewState: viewState }),
   resetFilters: () => set({ filters: initialFilters }),
 }));

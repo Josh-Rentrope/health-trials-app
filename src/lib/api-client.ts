@@ -299,3 +299,27 @@ export async function fetchCorrelationData(
 
   return response.json();
 }
+// This defines the structure of the data we expect from the new endpoint.
+export interface GeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: {
+    type: "Feature";
+    geometry: any;
+    properties: {
+      GEOID: string;
+      NAME: string;
+    };
+  }[];
+}
+
+// --- NEW: Function to fetch county boundaries from our own API ---
+export async function fetchCountyBoundariesFromApi(): Promise<GeoJSONFeatureCollection> {
+  const url = `${API_BASE_URL}/api/boundaries/counties`;
+  console.log("Fetching county boundaries from:", url);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch county boundaries: ${response.status}`);
+  }
+  return response.json();
+}
