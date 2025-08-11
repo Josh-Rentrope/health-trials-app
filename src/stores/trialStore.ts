@@ -14,6 +14,8 @@ export interface FilterState {
   status: string[];
   phase: string[];
   bounds?: BoundingBox;
+  correlationCondition?: string;
+  demographicVariable?: string; // e.g., 'v021_raw_value'
 }
 
 interface TrialState {
@@ -29,7 +31,17 @@ interface TrialState {
   setPagination: (newPagination: Partial<TrialState['pagination']>) => void;
 
   setMapViewState: (viewState: Partial<ViewState>) => void;
+  resetFilters: () => void;
 }
+
+const initialFilters: FilterState = {
+  condition: '',
+  location: 'United States',
+  status: [],
+  phase: [],
+  correlationCondition: '',
+  demographicVariable: '',
+};
 
 export const useTrialStore = create<TrialState>((set) => ({
   filters: {
@@ -37,6 +49,8 @@ export const useTrialStore = create<TrialState>((set) => ({
     location: 'United States',
     status: [],
     phase: [],
+    correlationCondition:"",
+    demographicVariable:""
   },
   pagination: {
     page: 0,
@@ -55,4 +69,5 @@ export const useTrialStore = create<TrialState>((set) => ({
     set((state) => ({ pagination: { ...state.pagination, ...newPagination } })),
   
   setMapViewState: (viewState) => set({ mapViewState: viewState }),
+  resetFilters: () => set({ filters: initialFilters }),
 }));

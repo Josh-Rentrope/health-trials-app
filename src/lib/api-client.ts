@@ -65,6 +65,21 @@ export interface Conversation {
 }
 
 
+export interface CompletedTrial {
+  id: string;
+  title: string;
+  status: string;
+  sponsor: string | null;
+}
+
+export interface CountyCorrelation {
+  fips_code: string;
+  county_name: string;
+  demographic_value: number | null;
+  completed_trials: CompletedTrial[];
+}
+
+
 
 // --- 3. The Normalizer Function: To transform API data into our app's data structure ---
 function normalizeApiStudy(study: ApiStudy): Trial | null {
@@ -262,4 +277,25 @@ export async function postMessage_demo(convId: string, content: string, email: s
         method: 'POST',
         body: JSON.stringify({ content }),
     });
+}
+
+export async function fetchCorrelationData(
+  condition: string,
+  demographicVariable: string
+): Promise<CountyCorrelation[]> {
+  const queryParams = new URLSearchParams({
+    condition: condition,
+    demographic_variable: demographicVariable,
+  });
+
+  const url = `${API_BASE_URL}/api/correlation?${queryParams.toString()}`;
+  console.log("Fetching from correlation data URL:", url);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const errorBody = await response.json();
+    throw new Error(errorBody.detail || `Correlation data call failed with status: ${response.status}`);
+  }
+
+  return response.json();
 }
