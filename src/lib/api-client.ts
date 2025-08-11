@@ -108,7 +108,7 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
 }
 
 // --- 4. The API Fetcher ---
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://137.184.197.31:8000";
 
 // Helper for making authenticated requests
 async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
