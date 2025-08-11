@@ -1,8 +1,8 @@
 // components/trial/MapView.tsx
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import Map, { Marker, MapRef } from 'react-map-gl/mapbox';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Map, { Marker, MapRef, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import useSupercluster from 'use-supercluster';
 import { useTrialStore } from '@/stores/trialStore';
@@ -69,15 +69,19 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     staleTime: Infinity, 
   });
 
-  const points: GeoJSONPoint[] = (mapData && (mapViewState.zoom ?? 0) >= CLUSTER_THRESHOLD)
-    ? (mapData as Trial[]).flatMap(trial =>
+
+  const points = useMemo(() => {
+    if (!mapData) return [];
+    return (mapData as (ApiCluster | Trial)[])
+      .filter((item): item is Trial => !item.is_cluster)
+      .flatMap(trial =>
         (trial.locations || []).map((loc, index) => ({
           type: 'Feature',
           properties: { cluster: false, trialId: trial.id, locationKey: `${trial.id}-${index}`, trialTitle: trial.title },
           geometry: { type: 'Point', coordinates: [loc.longitude, loc.latitude] },
         }))
-      )
-    : [];
+      );
+  }, [mapData]);
 
   const { clusters, supercluster } = useSupercluster({
     points,
@@ -151,7 +155,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
       map.once('load', manageLayers);
     }
 
-  }, [isCorrelationMode, countyBoundaries]);
+  }, [viewMode=="correlation", countyBoundaries]);
   
   // --- FIX: A separate useEffect to dynamically update the color based on correlation data ---
   // useEffect(() => {
@@ -284,6 +288,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
           );
         })
       )}
+      {renderPopup()}
     </Map>
   );
 };
