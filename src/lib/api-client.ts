@@ -108,7 +108,7 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
 }
 
 // --- 4. The API Fetcher ---
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "https://backend.withpower-demo.codingshinobi.com";
 
 // Helper for making authenticated requests
 async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
@@ -149,7 +149,9 @@ export async function fetchTrialsFromApi(filters: FilterState & { page?: number;
   const queryParams = new URLSearchParams();
   if (filters.condition) queryParams.append('q', filters.condition);
   if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
-  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(',').replace("_", ""));
+  
+  // --- FIX: Remove incorrect string replacement. Backend will handle the keys. ---
+  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
 
   if (filters.bounds) {
       const { sw, ne } = filters.bounds;

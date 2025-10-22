@@ -31,6 +31,9 @@ interface TrialState {
   viewMode: ViewMode;
   mapViewState: Partial<ViewState>;
 
+  isCollapsed?: boolean; // New prop to control collapsed state
+  setCollapsed?: (collapsed: boolean) => void; // N
+
   setFilters: (newFilters: Partial<FilterState>) => void;
   setPagination: (newPagination: Partial<TrialState['pagination']>) => void;
 
@@ -63,7 +66,7 @@ export const useTrialStore = create<TrialState>((set) => ({
     page: 0,
     limit: 50, // Set how many trials your API should return per page
   },
-
+  isCollapsed:false,
   viewMode: 'trials', // Default to trials view
   mapViewState: {
     longitude: -98.5795,
@@ -76,6 +79,8 @@ export const useTrialStore = create<TrialState>((set) => ({
   setPagination: (newPagination) =>
     set((state) => ({ pagination: { ...state.pagination, ...newPagination } })),
   
+  setCollapsed: (mode) => set( {isCollapsed:mode} ),
+
   setViewMode: (mode) => set({ viewMode: mode }),
   setMapViewState: (viewState) => set({ mapViewState: viewState }),
   resetFilters: () => set({ filters: initialFilters }),

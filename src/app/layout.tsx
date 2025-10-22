@@ -51,7 +51,7 @@ export default function RootLayout({
               <header className="p-4 border-b">
                 <nav className="flex justify-between">
                   <p>VoltAmp App</p>
-                  <SignedOut>
+                  {/* <SignedOut>
                     <SignInButton />
                     <SignUpButton>
                       <button className="bg-[#6c47ff] text-ceramic-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
@@ -64,7 +64,7 @@ export default function RootLayout({
                         Chat Assistant
                       </Link>
                     <UserButton />
-                  </SignedIn>
+                  </SignedIn> */}
                 </nav>
               </header>
               {children}
