@@ -14,6 +14,7 @@ import {
   CountyCorrelation,
   GeoJSONFeatureCollection,
   MapData,
+  Site,
   Trial,
   fetchCorrelationData,
   fetchCountyBoundariesFromApi,
@@ -25,6 +26,9 @@ import { useQuery } from '@tanstack/react-query';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const CLUSTER_THRESHOLD = 12;
+// Must match `useSupercluster`'s maxZoom. A cluster whose expansion zoom exceeds
+// this can never split, because its members share identical coordinates.
+const MAX_CLUSTER_ZOOM = 20;
 
 // `type: 'Feature'` has to be a literal, not a widened `string`, or the object is
 // not assignable to the GeoJSON feature types supercluster expects.
@@ -52,12 +56,19 @@ type MapViewProps = {
 
 const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   const mapRef = useRef<MapRef>(null);
+  // Where the pointer went down, so a click can be distinguished from the end of
+  // a pan. Mapbox fires `click` after a drag in some cases, and without this a
+  // pan that ends over empty map would dismiss the popup the user was reading.
+  const downPoint = useRef<{ x: number; y: number } | null>(null);
   const { mapViewState, setMapViewState, filters, setFilters, viewMode,
           focusTrial, setFocusTrial } = useTrialStore();
   const [debouncedFilters] = useDebounce(filters, 500);
   const [activePopup, setActivePopup] = useState<
     | { type: 'trial'; data: Trial; longitude: number; latitude: number }
     | { type: 'county'; data: CountyCorrelation; longitude: number; latitude: number }
+    // Several trials at the same coordinates. Supercluster cannot split these at
+    // any zoom, so the cluster is the destination rather than a stepping stone.
+    | { type: 'multi'; data: Trial[]; total: number; longitude: number; latitude: number }
     | null
   >(null);
 
@@ -91,6 +102,15 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   if (mapData) lastGoodMap.current = mapData;
   const shownMap: MapData = mapData ?? lastGoodMap.current ?? [];
 
+  // Trials by id, so a cluster's leaves can be resolved back to their records.
+  const trialById = useMemo(() => {
+    const m = new Map<string, Trial>();
+    for (const item of shownMap) {
+      if (!item.is_cluster && !item.is_site) m.set(item.id, item);
+    }
+    return m;
+  }, [shownMap]);
+
   const { data: correlationData } = useQuery<CountyCorrelation[]>({
     queryKey: ['correlationData', filters.correlationCondition, filters.demographicVariable],
     queryFn: () =>
@@ -108,7 +128,9 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   const points = useMemo<PointFeature[]>(() => {
     if (!shownMap.length) return [];
     return shownMap
-      .filter((item): item is Trial => !item.is_cluster)
+      // Sites are multi-trial points, not points to cluster; they render as their
+      // own marker and open a list.
+      .filter((item): item is Trial => !item.is_cluster && !item.is_site)
       .flatMap((trial) =>
         (trial.locations ?? []).map((loc, index) => ({
           type: 'Feature' as const,
@@ -268,13 +290,68 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
           longitude: e.lngLat.lng,
           latitude: e.lngLat.lat,
         });
+        return;
       }
     }
+    // Anything else is a click on the map itself. Dismiss whatever is open --
+    // that is the expected way to get rid of a popup, and Mapbox's own
+    // `closeOnClick` cannot be used because it also fires when a marker is
+    // clicked, closing the popup the marker just opened.
+    if (activePopup) setActivePopup(null);
   };
 
   const renderPopup = () => {
     if (!activePopup) return null;
     const { longitude, latitude } = activePopup;
+
+    // Several trials at one coordinate. Scrollable, because a large site can
+    // legitimately host a dozen studies and a popup that grows off-screen is
+    // worse than one that scrolls.
+    if (activePopup.type === 'multi') {
+      const { data: trials, total } = activePopup;
+      return (
+        <Popup
+          longitude={longitude}
+          latitude={latitude}
+          closeOnClick={false}
+          onClose={() => setActivePopup(null)}
+          anchor="bottom"
+          maxWidth="360px"
+        >
+          <div className="p-1">
+            <h4 className="font-semibold text-sm text-gray-900">
+              {total} trial{total === 1 ? '' : 's'} at this site
+            </h4>
+            <p className="text-[11px] text-gray-500 mb-1">
+              Showing {trials.length} most recent
+              {total > trials.length ? ` of ${total}` : ''}
+            </p>
+            <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+              {trials.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActivePopup({ type: 'trial', data: t, longitude, latitude })
+                    }
+                    className="w-full text-left py-2 px-1 hover:bg-gray-50 rounded"
+                  >
+                    <p className="text-xs font-medium text-gray-900 leading-snug line-clamp-2">
+                      {t.title}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {t.status}
+                      {t.phases.length > 0 ? ` · ${t.phases.join(', ')}` : ''}
+                    </p>
+                    <p className="text-[11px] text-blue-600 font-mono">{t.id}</p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Popup>
+      );
+    }
 
     // The trial popup. The click handlers below always set this state; only the
     // county branch was ever rendered, so clicking a pin set state and then
@@ -365,7 +442,20 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
       onMoveEnd={handleMapInteraction}
       onZoomEnd={handleMapInteraction}
       onLoad={handleMapInteraction}
-      onClick={handleMapClick}
+      onMouseDown={(e) => { downPoint.current = { x: e.point.x, y: e.point.y }; }}
+      onClick={(e) => {
+        const down = downPoint.current;
+        const travelled = down
+          ? Math.hypot(e.point.x - down.x, e.point.y - down.y)
+          : 0;
+        // More than a few pixels means a pan, not a click.
+        if (travelled > 4) return;
+        handleMapClick(e);
+      }}
+      // Without this, `e.features` in the click handler is always empty and the
+      // county choropleth is never clickable -- the handler looks correct and
+      // silently does nothing.
+      interactiveLayerIds={isCorrelationMode ? ['county-choropleth'] : []}
       mapboxAccessToken={MAPBOX_TOKEN}
       style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
@@ -398,6 +488,37 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                 </Marker>
               );
             }
+            // A location hosting several studies. Sized on a log scale so a hub
+            // with 15,000 studies does not produce a marker wider than the state.
+            if (item.is_site) {
+              const site = item as Site;
+              const size = Math.min(64, 26 + Math.log10(Math.max(site.point_count, 1)) * 12);
+              return (
+                <Marker
+                  key={`site-${site.latitude}-${site.longitude}`}
+                  latitude={site.latitude}
+                  longitude={site.longitude}
+                >
+                  <div
+                    className="flex items-center justify-center bg-purple-600 text-white rounded-full cursor-pointer text-[11px] font-medium shadow-md"
+                    style={{ width: `${size}px`, height: `${size}px` }}
+                    title={`${site.point_count} trials at this location`}
+                    onClick={() =>
+                      setActivePopup({
+                        type: 'multi',
+                        data: site.trials,
+                        total: site.point_count,
+                        longitude: site.longitude,
+                        latitude: site.latitude,
+                      })
+                    }
+                  >
+                    {site.point_count}
+                  </div>
+                </Marker>
+              );
+            }
+
             const trial = item as Trial;
             return (trial.locations ?? []).map((loc, index) => (
               <Marker key={`${trial.id}-${index}`} latitude={loc.latitude} longitude={loc.longitude}>
@@ -442,11 +563,36 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                       height: `${30 + (points.length ? (pointCount / points.length) * 40 : 0)}px`,
                     }}
                     onClick={() => {
-                      const expansionZoom = Math.min(
-                        supercluster?.getClusterExpansionZoom(cluster.id as number) ?? 20,
-                        20,
-                      );
-                      setMapViewState({ ...mapViewState, latitude, longitude, zoom: expansionZoom });
+                      const raw = supercluster?.getClusterExpansionZoom(cluster.id as number)
+                        ?? MAX_CLUSTER_ZOOM;
+
+                      // A cluster of trials sharing one exact coordinate can
+                      // never separate: its expansion zoom is past the maximum.
+                      // Zooming to it would just re-render the same purple dot,
+                      // so it opens a list instead.
+                      if (raw > MAX_CLUSTER_ZOOM) {
+                        const leaves = supercluster?.getLeaves(cluster.id as number, 5) ?? [];
+                        const list = leaves
+                          .map((leaf) => trialById.get(
+                            (leaf.properties as { trialId?: string }).trialId ?? ''))
+                          .filter((t): t is Trial => Boolean(t));
+                        if (list.length > 0) {
+                          setActivePopup({
+                            type: 'multi',
+                            data: list,
+                            total: pointCount,
+                            longitude,
+                            latitude,
+                          });
+                          return;
+                        }
+                      }
+                      setMapViewState({
+                        ...mapViewState,
+                        latitude,
+                        longitude,
+                        zoom: Math.min(raw, MAX_CLUSTER_ZOOM),
+                      });
                     }}
                   >
                     {pointCount}

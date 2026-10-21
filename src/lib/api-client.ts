@@ -79,8 +79,17 @@ export interface ApiCluster {
   longitude: number;
 }
 
+export interface ApiSite {
+  is_site: true;
+  point_count: number;
+  latitude: number;
+  longitude: number;
+  trials: ApiStudy[];
+}
+
 export interface Trial {
   is_cluster: false;
+  is_site?: false;
   id: string;
   title: string;
   acronym: string | null;
@@ -90,7 +99,29 @@ export interface Trial {
   locations?: { latitude: number; longitude: number; precision?: string | null }[];
 }
 
-export type MapData = (ApiCluster | Trial)[];
+/**
+ * One geocoded location hosting several studies.
+ *
+ * Locations dedupe at city level, so a single point can stand for a research hub
+ * with thousands of studies — Houston alone has over 15,000. The API returns the
+ * true total plus the five most recent, which is what the popup lists.
+ */
+export interface Site {
+  // The two flags together make the union discriminable: every map item is
+  // (is_cluster true) | (is_site true) | (both false, a Trial). Without
+  // `is_cluster: false` here, checking `item.is_cluster` is a type error.
+  is_cluster: false;
+  is_site: true;
+  point_count: number;
+  latitude: number;
+  longitude: number;
+  trials: Trial[];
+}
+
+export type MapData = (ApiCluster | Site | Trial)[];
+
+/** A map item that is not a cluster — either one trial or a multi-trial site. */
+export type MapPoint = Site | Trial;
 
 export interface ChatMessage {
   id: string;
@@ -222,10 +253,27 @@ export async function fetchMapData(
   if (Array.isArray(filters.status) && filters.status.length) qs.append('status', filters.status.join(','));
   if (Array.isArray(filters.phase) && filters.phase.length) qs.append('phase', filters.phase.join(','));
 
-  const raw = await getJson<(ApiCluster | ApiStudy)[]>(`/studies/map-data?${qs}`);
+  type RawMapItem = ApiCluster | ApiSite | ApiStudy;
+  const raw = await getJson<RawMapItem[]>(`/studies/map-data?${qs}`);
   return raw
-    .map((item) => ('is_cluster' in item && item.is_cluster ? (item as ApiCluster) : normalizeApiStudy(item as ApiStudy)))
-    .filter((x): x is ApiCluster | Trial => x !== null);
+    .map((item): ApiCluster | Site | Trial | null => {
+      if ('is_cluster' in item && item.is_cluster) return item as ApiCluster;
+      if ('is_site' in item && item.is_site) {
+        const site = item as ApiSite;
+        return {
+          is_cluster: false as const,
+          is_site: true as const,
+          point_count: site.point_count,
+          latitude: site.latitude,
+          longitude: site.longitude,
+          trials: (site.trials ?? [])
+            .map(normalizeApiStudy)
+            .filter((t): t is Trial => t !== null),
+        };
+      }
+      return normalizeApiStudy(item as ApiStudy);
+    })
+    .filter((x): x is ApiCluster | Site | Trial => x !== null);
 }
 
 export async function fetchCountyBoundariesFromApi(): Promise<GeoJSONFeatureCollection> {
