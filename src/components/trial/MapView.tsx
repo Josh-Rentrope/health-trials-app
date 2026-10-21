@@ -241,6 +241,51 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     if (!activePopup) return null;
     const { longitude, latitude } = activePopup;
 
+    // The trial popup. The click handlers below always set this state; only the
+    // county branch was ever rendered, so clicking a pin set state and then
+    // displayed nothing.
+    if (activePopup.type === 'trial') {
+      const trial = activePopup.data;
+      return (
+        <Popup
+          longitude={longitude}
+          latitude={latitude}
+          closeOnClick={false}
+          onClose={() => setActivePopup(null)}
+          anchor="bottom"
+          maxWidth="320px"
+        >
+          <div className="p-1 max-w-xs">
+            <h4 className="font-semibold text-sm text-gray-900 leading-snug">
+              {trial.title}
+            </h4>
+            <div className="mt-2 space-y-1 text-xs text-gray-600">
+              {trial.acronym && <p className="font-mono">{trial.acronym}</p>}
+              <p>
+                <span className="font-medium text-gray-700">{trial.status}</span>
+                {trial.phases.length > 0 && <> · {trial.phases.join(', ')}</>}
+              </p>
+              <p className="truncate" title={trial.sponsor}>{trial.sponsor}</p>
+              {trial.locations && trial.locations.length > 0 && (
+                <p className="text-gray-400">
+                  {trial.locations.length} site{trial.locations.length === 1 ? '' : 's'}
+                  {trial.locations[0].precision ? ` · ${trial.locations[0].precision}` : ''}
+                </p>
+              )}
+            </div>
+            <a
+              href={`https://clinicaltrials.gov/study/${trial.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-xs font-medium text-blue-600 hover:text-blue-800"
+            >
+              {trial.id} ↗
+            </a>
+          </div>
+        </Popup>
+      );
+    }
+
     if (activePopup.type === 'county') {
       const county = activePopup.data;
       return (
