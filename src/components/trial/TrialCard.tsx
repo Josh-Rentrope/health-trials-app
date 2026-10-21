@@ -1,6 +1,6 @@
 // components/trials/TrialCard.tsx
 import React from 'react';
-import { Trial } from '@/lib/api'; // Imports our NEW, CLEAN Trial type
+import { Trial } from '@/lib/api-client';
 import { InfoPill } from '@/components/ui/InfoPill';
 import Link from 'next/link';
 

@@ -1,7 +1,8 @@
-// app/trials/page.tsx
-import { getAllTrials } from '@/lib/data';
-import { TrialsClientPage } from '@/components/trial/TrialsClientPage';
-
+// app/page.tsx -- the landing page.
+//
+// `getAllTrials` and `TrialsClientPage` used to be imported here and never
+// rendered: the mock trial data and the client page that came with it. Both are
+// gone, along with the rest of the mock detail route.
 import { Hero } from '@/components/landing/Hero';
 import { Stats } from '@/components/landing/Stats';
 import { HowItWorks } from '@/components/landing/HowItWorks';

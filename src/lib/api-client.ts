@@ -1,22 +1,67 @@
 // lib/api-client.ts
+//
+// The single data layer for the app. Rewritten from the original, which had
+// three problems worth naming:
+//
+//  1. The API base URL was a hardcoded literal
+//     (`https://backend.withpower-demo.codingshinobi.com`). It reads from
+//     NEXT_PUBLIC_API_BASE_URL now, which is also what lets the deployed front
+//     end point at a different API without a code change.
+//
+//  2. Chat used an `X-User-Email` header, and `fetchWithEmail` *ignored its own
+//     `email` argument* -- it hardcoded one UUID. Every visitor therefore shared
+//     a single identity and could list every other visitor's conversations. Chat
+//     now uses the server-issued session cookie, so the identity cannot be
+//     chosen by the caller.
+//
+//  3. There were two parallel chat families (a `_demo` set and a Bearer set) and
+//     the live components called one of each. There is one set now.
+//
+// Every request sends `credentials: 'include'`. That, an exact origin in the
+// API's CORS config, and `allow_credentials=True` on the server are all
+// required for the cookie to survive the cross-origin call -- and all three
+// fail silently if omitted, so they are worth keeping together in one place.
 
-import { FilterState } from './api';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
 
-// --- 1. Define the RAW data structure from our new FastAPI backend ---
+function url(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
+async function getJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(url(path), {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+    ...init,
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`${path} failed with ${response.status}${body ? `: ${body.slice(0, 200)}` : ''}`);
+  }
+  if (response.status === 204) return null as T;
+  return response.json() as Promise<T>;
+}
+
+// ── types ───────────────────────────────────────────────────────────────────
+
 export interface StudyLocation {
   location_text: string;
   latitude: number;
   longitude: number;
+  /** Which geocode tier produced this point: postal | city | admin1 | country | none. */
+  precision?: string | null;
 }
 
 export interface ApiStudy {
   nct_number: string;
   study_title: string;
-  study_url: string;
-  status?: string;
-  conditions?: string;
-  phase?: string;
-  enrollment_count?: number;
+  study_url?: string | null;
+  acronym?: string | null;
+  status?: string | null;
+  conditions?: string | null;
+  phase?: string | null;
+  sponsor?: string | null;
+  enrollment_count?: number | null;
   locations: StudyLocation[];
 }
 
@@ -34,7 +79,6 @@ export interface ApiCluster {
   longitude: number;
 }
 
-
 export interface Trial {
   is_cluster: false;
   id: string;
@@ -43,27 +87,24 @@ export interface Trial {
   status: string;
   sponsor: string;
   phases: string[];
-  locations?: { latitude: number; longitude: number }[];
+  locations?: { latitude: number; longitude: number; precision?: string | null }[];
 }
-
 
 export type MapData = (ApiCluster | Trial)[];
 
 export interface ChatMessage {
-    id: string;
-    conversation_id: string;
-    sender_id: string;
-    content: string;
-    sent_at: string;
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  sent_at: string;
 }
 
 export interface Conversation {
-    id: string;
-    created_at: string;
-    updated_at: string;
-    participants: { user_id: string }[];
+  id: string;
+  created_at: string;
+  updated_at: string;
 }
-
 
 export interface CompletedTrial {
   id: string;
@@ -79,249 +120,160 @@ export interface CountyCorrelation {
   completed_trials: CompletedTrial[];
 }
 
+export interface Bounds {
+  sw: { lng: number; lat: number };
+  ne: { lng: number; lat: number };
+}
 
+/**
+ * The filter surface the store produces. Declared explicitly rather than as
+ * `Record<string, unknown>` so passing the store's `FilterState` (which has
+ * extra fields like `correlationCondition`) is assignable without a cast --
+ * a `Record` requires an index signature, which a concrete interface lacks.
+ */
+export interface StudyFilters {
+  condition?: string;
+  status?: string[];
+  phase?: string[];
+  bounds?: Bounds;
+  location?: string;
+  page?: number;
+  limit?: number;
+}
 
-// --- 3. The Normalizer Function: To transform API data into our app's data structure ---
+export interface GeoJSONFeatureCollection {
+  type: 'FeatureCollection';
+  features: {
+    type: 'Feature';
+    geometry: unknown;
+    properties: { GEOID: string; NAME: string };
+  }[];
+}
+
+// The assistant's own messages. Mirrors migrations.AI_SENDER_ID on the server.
+export const AI_SENDER_ID = '00000000-0000-0000-0000-000000000000';
+
+// ── normalisation ───────────────────────────────────────────────────────────
+
+function formatStatus(status: string): string {
+  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
 function normalizeApiStudy(study: ApiStudy): Trial | null {
-  if (!study || !study.nct_number || !study.study_title) {
-    return null;
-  }
-
-  // Helper to format status strings (e.g., "RECRUITING" -> "Recruiting")
-  const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-  };
-
+  if (!study?.nct_number || !study?.study_title) return null;
   return {
     is_cluster: false,
     id: study.nct_number,
     title: study.study_title,
-    acronym: null, // The new API doesn't provide an acronym
+    acronym: study.acronym ?? null,
     status: study.status ? formatStatus(study.status) : 'Unknown',
-    sponsor: 'Sponsor from DB', // The new API doesn't provide a sponsor, so we'll need to decide on a placeholder
-    phases: study.phase ? study.phase.split('|').map(p => `Phase ${p.replace('PHASE', '')}`) : [],
-    locations: study.locations.map(loc => ({
-      latitude: loc.latitude,
-      longitude: loc.longitude,
+    // The API returns these now; the original hardcoded the string
+    // "Sponsor from DB" because it did not.
+    sponsor: study.sponsor ?? 'Sponsor not listed',
+    phases: study.phase
+      ? study.phase.split('|').map((p) => `Phase ${p.replace('PHASE', '').replace('EARLY ', '')}`)
+      : [],
+    locations: (study.locations ?? []).map((l) => ({
+      latitude: l.latitude,
+      longitude: l.longitude,
+      precision: l.precision ?? null,
     })),
   };
 }
 
-// --- 4. The API Fetcher ---
-const API_BASE_URL = "https://backend.withpower-demo.codingshinobi.com";
+// ── studies ─────────────────────────────────────────────────────────────────
 
-// Helper for making authenticated requests
-async function fetchWithAuth(url: string, token: string, options: RequestInit = {}) {
-    const headers = {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-    };
-
-    const response = await fetch(url, { ...options, headers });
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`API call failed with status ${response.status}: ${errorBody}`);
-    }
-    return response.json();
-}
-
-async function fetchWithEmail(url: string, email: string, options: RequestInit = {}) {
-    const headers = {
-        ...options.headers,
-        'X-User-Email': "e1656d48-b566-4731-80b5-efe9ad37c28c", // Add the custom email header
-        'Content-Type': 'application/json',
-    };
-    const response = await fetch(url, { ...options, headers });
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`API call failed with status ${response.status}: ${errorBody}`);
-    }
-    // Handle cases with no JSON response body (e.g., 204 No Content)
-    if (response.status === 204) {
-        return null;
-    }
-    return response.json();
-}
-
-
-export async function fetchTrialsFromApi(filters: FilterState & { page?: number; limit?: number }): Promise<{ trials: Trial[], totalCount: number }> {
-  const queryParams = new URLSearchParams();
-  if (filters.condition) queryParams.append('q', filters.condition);
-  if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
-  
-  // --- FIX: Remove incorrect string replacement. Backend will handle the keys. ---
-  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
-
-  if (filters.bounds) {
-      const { sw, ne } = filters.bounds;
-      queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
+export async function fetchTrialsFromApi(
+  filters: StudyFilters,
+): Promise<{ trials: Trial[]; totalCount: number }> {
+  const qs = new URLSearchParams();
+  if (filters.condition) qs.append('q', String(filters.condition));
+  if (Array.isArray(filters.status) && filters.status.length) {
+    qs.append('status', filters.status.join(','));
   }
-
-  queryParams.append('page', String(filters.page ? filters.page + 1 : 1));
-  queryParams.append('limit', String(filters.limit || 10));
-
-  const url = `${API_BASE_URL}/studies?${queryParams.toString()}`;
-  console.log("Fetching from FastAPI URL:", url);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`FastAPI call failed with status: ${response.status}`);
+  if (Array.isArray(filters.phase) && filters.phase.length) {
+    qs.append('phase', filters.phase.join(','));
   }
+  const bounds = filters.bounds;
+  if (bounds) {
+    qs.append('bbox', `${bounds.sw.lng},${bounds.sw.lat},${bounds.ne.lng},${bounds.ne.lat}`);
+  }
+  qs.append('page', String(filters.page ? Number(filters.page) + 1 : 1));
+  qs.append('limit', String(filters.limit ?? 10));
 
-  const rawResponse = (await response.json()) as PaginatedApiResponse;
-
-  const normalizedTrials = rawResponse.data
-    .map(normalizeApiStudy)
-    .filter((trial): trial is Trial => trial !== null);
-
+  const raw = await getJson<PaginatedApiResponse>(`/studies?${qs}`);
   return {
-    trials: normalizedTrials,
-    totalCount: rawResponse.total,
+    trials: raw.data.map(normalizeApiStudy).filter((t): t is Trial => t !== null),
+    totalCount: raw.total,
   };
 }
 
-export async function fetchMapData(filters: FilterState, zoom: number): Promise<MapData> {
-  if (!filters.bounds) return [];
+export async function fetchMapData(
+  filters: StudyFilters,
+  zoom: number,
+): Promise<MapData> {
+  const bounds = filters.bounds;
+  if (!bounds) return [];
 
-  const queryParams = new URLSearchParams();
-  const { sw, ne } = filters.bounds;
-  queryParams.append('bbox', `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`);
-  queryParams.append('zoom', String(Math.round(zoom)));
+  const qs = new URLSearchParams();
+  qs.append('bbox', `${bounds.sw.lng},${bounds.sw.lat},${bounds.ne.lng},${bounds.ne.lat}`);
+  qs.append('zoom', String(Math.round(zoom)));
+  if (filters.condition) qs.append('q', String(filters.condition));
+  if (Array.isArray(filters.status) && filters.status.length) qs.append('status', filters.status.join(','));
+  if (Array.isArray(filters.phase) && filters.phase.length) qs.append('phase', filters.phase.join(','));
 
-  // Append other filters
-  if (filters.condition) queryParams.append('q', filters.condition);
-  if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
-  if (filters.phase && filters.phase.length > 0) queryParams.append('phase', filters.phase.join(','));
-
-
-  const url = `${API_BASE_URL}/studies/map-data?${queryParams.toString()}`;
-  console.log("Fetching from new map data URL:", url);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`FastAPI map data call failed with status: ${response.status}`);
-  }
-
-  const rawResponse = (await response.json());
-
-  // The backend now returns objects that match ApiCluster or a simplified Trial structure
-  // We need to normalize the trials to our frontend Trial type
-  return rawResponse.map((item: any) => {
-    if (item.is_cluster) {
-      return item as ApiCluster;
-    }
-    // It's a study from the backend, normalize it
-    return normalizeApiStudy(item as ApiStudy);
-  }).filter(Boolean); // Filter out any nulls from normalization
+  const raw = await getJson<(ApiCluster | ApiStudy)[]>(`/studies/map-data?${qs}`);
+  return raw
+    .map((item) => ('is_cluster' in item && item.is_cluster ? (item as ApiCluster) : normalizeApiStudy(item as ApiStudy)))
+    .filter((x): x is ApiCluster | Trial => x !== null);
 }
 
-
-// --- API Functions for Chat (Authenticated) ---
-export function getConversations(token: string): Promise<Conversation[]> {
-    return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations`, token);
-}
-
-export function createConversation(token: string): Promise<Conversation> {
-  return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations`, token, {
-    method: 'POST',
-    // The backend automatically adds the creator, so the body can be simple
-    body: JSON.stringify({ participant_ids: [] }),
-  });
-};
-
-export function deleteConversation(token: string, convId: string): Promise<null> {
-    return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}`, token, { method: 'DELETE' });
-};
-
-export function getMessages(token: string, convId: string): Promise<ChatMessage[]> {
-  return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, token, { method: 'GET' });
-};
-
-export function postMessage(token: string, convId: string, content: string): Promise<ChatMessage> {
-    return fetchWithAuth(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, token, {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-    });
-}
-
-export async function getConversations_demo(email: string): Promise<Conversation[]> {
-    return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations`, email);
-}
-
-export function deleteConversation_demo(email: string, convId: string): Promise<null> {
-    return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/${convId}`, email, { method: 'DELETE' });
-};
-
-    /**
-   * ## NEW: Creates a new conversation.
-   * @param currentUserEmail The email of the user initiating the conversation.
-   * @param participantEmails An array of other participants' emails.
-   * @returns The newly created conversation object.
-   */
-export function createConversation_demo(currentUserEmail: string, participantEmails: string[]): Promise<Conversation> {
-      const payload = {
-          participant_ids: participantEmails,
-      };
-      return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/create`, currentUserEmail, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-      });
-}
-
-export function getMessages_demo(email: string, convId: string): Promise<ChatMessage[]> {
-  return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, email, { method: 'GET' });
-};
-
-
-export async function postMessage_demo(convId: string, content: string, email: string): Promise<ChatMessage> {
-    return fetchWithEmail(`${API_BASE_URL}/api/chat/conversations/${convId}/messages`, email, {
-        method: 'POST',
-        body: JSON.stringify({ content }),
-    });
+export async function fetchCountyBoundariesFromApi(): Promise<GeoJSONFeatureCollection> {
+  return getJson<GeoJSONFeatureCollection>('/api/boundaries/counties');
 }
 
 export async function fetchCorrelationData(
   condition: string,
-  demographicVariable: string
+  demographicVariable: string,
 ): Promise<CountyCorrelation[]> {
-  const queryParams = new URLSearchParams({
-    condition: condition,
-    demographic_variable: demographicVariable,
+  const qs = new URLSearchParams({ condition, demographic_variable: demographicVariable });
+  return getJson<CountyCorrelation[]>(`/api/correlation?${qs}`);
+}
+
+// ── sessions ────────────────────────────────────────────────────────────────
+
+/**
+ * Ensure a session cookie exists, minting one if not.
+ *
+ * This is the only place identity is established. Calling it before the first
+ * chat request means the cookie is set by a request the app controls, rather
+ * than depending on the first chat call to have established it.
+ */
+export async function ensureSession(): Promise<{ display_name: string | null }> {
+  return getJson<{ display_name: string | null }>('/api/session');
+}
+
+// ── chat ────────────────────────────────────────────────────────────────────
+
+export function getConversations(): Promise<Conversation[]> {
+  return getJson<Conversation[]>('/api/chat/conversations');
+}
+
+export function createConversation(): Promise<Conversation> {
+  return getJson<Conversation>('/api/chat/conversations', { method: 'POST' });
+}
+
+export function deleteConversation(convId: string): Promise<null> {
+  return getJson<null>(`/api/chat/conversations/${convId}`, { method: 'DELETE' });
+}
+
+export function getMessages(convId: string): Promise<ChatMessage[]> {
+  return getJson<ChatMessage[]>(`/api/chat/conversations/${convId}/messages`);
+}
+
+export function postMessage(convId: string, content: string): Promise<ChatMessage> {
+  return getJson<ChatMessage>(`/api/chat/conversations/${convId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
   });
-
-  const url = `${API_BASE_URL}/api/correlation?${queryParams.toString()}`;
-  console.log("Fetching from correlation data URL:", url);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    const errorBody = await response.json();
-    throw new Error(errorBody.detail || `Correlation data call failed with status: ${response.status}`);
-  }
-
-  return response.json();
-}
-// This defines the structure of the data we expect from the new endpoint.
-export interface GeoJSONFeatureCollection {
-  type: "FeatureCollection";
-  features: {
-    type: "Feature";
-    geometry: any;
-    properties: {
-      GEOID: string;
-      NAME: string;
-    };
-  }[];
-}
-
-// --- NEW: Function to fetch county boundaries from our own API ---
-export async function fetchCountyBoundariesFromApi(): Promise<GeoJSONFeatureCollection> {
-  const url = `${API_BASE_URL}/api/boundaries/counties`;
-  console.log("Fetching county boundaries from:", url);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch county boundaries: ${response.status}`);
-  }
-  return response.json();
 }

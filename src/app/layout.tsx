@@ -1,24 +1,16 @@
 import type { Metadata } from "next";
-
-import {
-  ClerkProvider,
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from '@clerk/nextjs'
-
-import { Providers } from './providers'; // Import the new provider
-import Link from 'next/link'; 
-
-
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { Providers } from './providers';
 import "./globals.css";
-import { AuthStatus } from '@/components/AuthStatus';
 
-//import 'regenerator-runtime/runtime';
-
+// Clerk used to wrap this tree. It is gone: nothing on the search or map path
+// needed a session, chat identity is a server-issued cookie now, and the
+// `<SignedIn>` header block below was commented out anyway -- so the only thing
+// Clerk still did was require two secrets to be present or the app would fail to
+// render at all. The `AuthStatus` import was likewise dead (imported, never
+// rendered) and pulled in a second, unused auth library.
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,47 +23,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VoltAmp",
-  description: "Power Clone",
+  title: "VoltAmp — Clinical Trial Search",
+  description: "Find recruiting clinical trials by condition, phase, and location.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-        
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ClerkProvider>
-          <Providers>
-              <header className="p-4 border-b">
-                <nav className="flex justify-between">
-                  <p>VoltAmp App</p>
-                  {/* <SignedOut>
-                    <SignInButton />
-                    <SignUpButton>
-                      <button className="bg-[#6c47ff] text-ceramic-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
-                        Sign Up
-                      </button>
-                    </SignUpButton>
-                  </SignedOut>
-                  <SignedIn>
-                    <Link href="/chat" className="font-medium text-gray-600 hover:text-blue-600">
-                        Chat Assistant
-                      </Link>
-                    <UserButton />
-                  </SignedIn> */}
-                </nav>
-              </header>
-              {children}
-          </Providers>
-        </ClerkProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Providers>
+          <header className="p-4 border-b">
+            <nav className="flex justify-between items-center">
+              <Link href="/" className="font-semibold">VoltAmp</Link>
+              <div className="flex gap-6 text-sm">
+                <Link href="/trials" className="text-gray-600 hover:text-blue-600">
+                  Search trials
+                </Link>
+                <Link href="/chat" className="text-gray-600 hover:text-blue-600">
+                  Ask the assistant
+                </Link>
+              </div>
+            </nav>
+          </header>
+          {children}
+        </Providers>
       </body>
     </html>
-          
   );
 }

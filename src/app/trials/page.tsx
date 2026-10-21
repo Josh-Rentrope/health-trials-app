@@ -7,58 +7,17 @@ import { useDebounce } from 'use-debounce';
 import ReactPaginate from 'react-paginate';
 import { FilterSidebar } from '@/components/trial/FilterSidebar';
 import { TrialList } from '@/components/trial/TrialList';
-import MapView from '@/components/trial/MapView';
 import { ViewToggle } from '@/components/trial/ViewToggle';
 import { useTrialStore } from '@/stores/trialStore';
-import { fetchTrialsFromApi, Trial } from '@/lib/api-client';
+import { fetchTrialsFromApi, StudyFilters, Trial } from '@/lib/api-client';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import ChatBot, { Flow } from 'react-chatbotify';
 import dynamic from 'next/dynamic';
-import { useAuth } from '@clerk/nextjs';
 
-const TrialAssistantChatbot = () => {
-    const { getToken } = useAuth();
-    const { filters, setFilters } = useTrialStore();
-
-    const handleSearchAction = async ({ userInput }: { userInput: string }) => {
-        const input = userInput.toLowerCase();
-        if (input.includes("phase 1")) setFilters({ phase: ["PHASE_1"] });
-        else if (input.includes("phase 2")) setFilters({ phase: ["PHASE_2"] });
-        else if (input.includes("recruiting")) setFilters({ status: ["RECRUITING"] });
-        else if (input.includes("california")) setFilters({ location: "California" });
-        else {
-            setFilters({ condition: userInput });
-        }
-    };
-
-    const flow: Flow = {
-        start: {
-            message: "Hello! I'm your trial search assistant. How can I help you find a clinical trial today?",
-            path: "query_loop",
-        },
-        query_loop: {
-            message: () => {
-                const condition = filters.condition;
-                if (condition) {
-                    return `I see you are looking for trials related to "${condition}". You can ask me to "show recruiting trials" or "find trials in California".`;
-                }
-                return "You can ask me to find trials for a condition, status, or location.";
-            },
-            path: "process_query",
-        },
-        process_query: {
-            user: true,
-            action: handleSearchAction,
-            path: "query_loop",
-        },
-    };
-
-    return <ChatBot flow={flow} />;
-};
-
-const DynamicChatBot = dynamic(() => Promise.resolve(TrialAssistantChatbot), {
-    ssr: false,
-});
+// The inline chatbot that used to live here is gone. It was rendered nowhere
+// (its usage was commented out) yet it still imported `react-chatbotify` at
+// module scope in a client component that gets prerendered, which is the classic
+// "window is not defined during prerender" break -- and it pulled in Clerk's
+// `useAuth` for a token it never used. The real assistant is at /chat.
 
 const MapViewCSR = dynamic(() => import('@/components/trial/MapView'), {
   ssr: false, 
@@ -78,16 +37,22 @@ export default function TrialsSearchPage() {
   // --- New state to control sidebar collapse ---
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  const { data, isLoading, isError, error } = useQuery<{ trials: Trial[], totalCount: number }>({
-    queryKey: ['trials', debouncedFilters, pagination, viewMode], // Added viewMode to queryKey
+  const { data, isLoading, error } = useQuery<{ trials: Trial[], totalCount: number }>({
+    queryKey: ['trials', debouncedFilters, pagination, viewMode],
     queryFn: () => {
-      const apiFilters = { ...debouncedFilters, ...pagination };
+      const apiFilters: StudyFilters = { ...debouncedFilters, ...pagination };
       if (viewMode !== 'map') {
+        // Bounds are only meaningful in map view; sending them from the list
+        // view would silently narrow the list to the last map viewport.
         delete apiFilters.bounds;
       }
       return fetchTrialsFromApi(apiFilters);
     },
-    keepPreviousData: true,
+    // v5 renamed this option: `keepPreviousData: true` is now
+    // `placeholderData: keepPreviousData` (the imported helper). Setting the old
+    // key was a type error and a silent no-op at runtime, so paging through
+    // results flashed the empty state on every page.
+    placeholderData: (previous) => previous,
   });
 
   const trials = data?.trials ?? [];
@@ -101,9 +66,6 @@ export default function TrialsSearchPage() {
 
   return (
     <div className="p-4">
-      
-      {/* <DynamicChatBot /> */}
-
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Find a Clinical Trial</h1>
         <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />

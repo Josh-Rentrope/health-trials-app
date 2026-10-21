@@ -1,4 +1,3 @@
-import Link from 'next/link';
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();

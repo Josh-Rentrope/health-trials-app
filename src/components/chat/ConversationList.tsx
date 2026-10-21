@@ -1,60 +1,42 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@clerk/nextjs';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getConversations, createConversation, deleteConversation, Conversation, getConversations_demo, createConversation_demo, deleteConversation_demo } from '@/lib/api-client';
-import { useChatStore } from '@/stores/chatStore';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { createConversation, deleteConversation, getConversations } from '@/lib/api-client';
+import { useChatStore } from '@/stores/chatStore';
 
 export function ConversationList() {
-  const { getToken, userId } = useAuth();
   const queryClient = useQueryClient();
   const { activeConversationId, setActiveConversationId } = useChatStore();
 
+  // Identity comes from the session cookie, established by the page before this
+  // mounts. No Clerk token, no email header.
   const { data: conversations, isLoading, error } = useQuery({
     queryKey: ['conversations'],
-    queryFn: async () => {
-      const token = await getToken();
-      if (!token) throw new Error('Not authenticated');
-      return getConversations_demo(userId||"demo");
-      //return getConversations(token);
-    },
+    queryFn: getConversations,
   });
 
   const newConversationMutation = useMutation({
-    mutationFn: async () => {
-        const token = await getToken();
-        if (!token) throw new Error('Not authenticated');
-        return createConversation_demo(userId||"demo", [userId||"demo"]);
-        //return createConversation(token);
-    },
-    onSuccess: (newConversation) => {
-        queryClient.invalidateQueries({ queryKey: ['conversations'] });
-        setActiveConversationId(newConversation.id);
-    },
-  });
-  
-  const deleteConversationMutation = useMutation({
-    mutationFn: async (convId: string) => {
-      const token = await getToken();
-      if (!token) throw new Error("Not authenticated");
-      return deleteConversation_demo(userId||"demo", convId);
-      //return deleteConversation(token, convId);
-    },
-    onSuccess: (_, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      if (activeConversationId === deletedId) {
-        setActiveConversationId(null);
-      }
+    mutationFn: createConversation,
+    onSuccess: (conversation) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      setActiveConversationId(conversation.id);
     },
   });
 
+  const deleteConversationMutation = useMutation({
+    mutationFn: deleteConversation,
+    onSuccess: (_result, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      if (activeConversationId === deletedId) setActiveConversationId(null);
+    },
+  });
 
   const handleDelete = (e: React.MouseEvent, convId: string) => {
-    e.stopPropagation(); // Prevent selection when deleting
-    if (window.confirm("Are you sure you want to delete this conversation?")) {
-        deleteConversationMutation.mutate(convId);
+    e.stopPropagation();
+    if (window.confirm('Delete this conversation?')) {
+      deleteConversationMutation.mutate(convId);
     }
   };
 
@@ -62,17 +44,21 @@ export function ConversationList() {
     <div className="p-4">
       <div className="flex justify-between items-center mb-4 text-gray-800">
         <h2 className="text-xl font-bold">Chats</h2>
-        <button 
-            onClick={() => newConversationMutation.mutate()} 
-            className="p-2 rounded-full hover:bg-gray-200"
-            title="Start new conversation"
+        <button
+          onClick={() => newConversationMutation.mutate()}
+          disabled={newConversationMutation.isPending}
+          className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50"
+          title="Start a new conversation"
         >
           <PlusCircle size={24} />
         </button>
       </div>
 
       {isLoading && <p className="text-gray-800">Loading conversations...</p>}
-      {error && <p className="text-red-500">Error: {error.message}</p>}
+      {error && <p className="text-red-500">Error: {(error as Error).message}</p>}
+      {!isLoading && !error && conversations?.length === 0 && (
+        <p className="text-gray-500 text-sm">No conversations yet.</p>
+      )}
 
       <ul className="space-y-2">
         {conversations?.map((conv) => (
@@ -80,18 +66,22 @@ export function ConversationList() {
             key={conv.id}
             onClick={() => setActiveConversationId(conv.id)}
             className={`p-3 rounded-lg cursor-pointer flex justify-between items-center ${
-              activeConversationId === conv.id ? 'bg-blue-700 text-white' : 'hover:bg-gray-200 text-gray-800'
+              activeConversationId === conv.id
+                ? 'bg-blue-700 text-white'
+                : 'hover:bg-gray-200 text-gray-800'
             }`}
           >
             <div>
-                <p className="font-semibold">Conversation</p>
-                <p className="text-sm opacity-80">
-                    Updated: {new Date(conv.updated_at).toLocaleDateString()}
-                </p>
+              <p className="font-semibold">Conversation</p>
+              <p className="text-sm opacity-80">
+                Updated: {new Date(conv.updated_at).toLocaleDateString()}
+              </p>
             </div>
             <button
               onClick={(e) => handleDelete(e, conv.id)}
-              className={`p-2 rounded-full hover:bg-red-500/20 ${activeConversationId === conv.id ? 'hover:text-red-500' : 'text-gray-500 hover:text-red-600'}`}
+              className={`p-2 rounded-full hover:bg-red-500/20 ${
+                activeConversationId === conv.id ? 'hover:text-red-300' : 'text-gray-500 hover:text-red-600'
+              }`}
               title="Delete conversation"
             >
               <Trash2 size={18} />

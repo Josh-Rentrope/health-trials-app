@@ -28,7 +28,7 @@ export const HowItWorks = () => {
             How It Works
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
-            Finding the right clinical trial shouldn't be another burden. We've streamlined the process into three simple steps.
+            Finding the right clinical trial shouldn&apos;t be another burden. We&apos;ve streamlined the process into three simple steps.
           </p>
         </div>
         <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">

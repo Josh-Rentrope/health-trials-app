@@ -1,12 +1,12 @@
 // components/trials/TrialList.tsx
 import React from 'react';
-import { Trial } from '@/lib/api'; // Use our clean Trial type
+import { Trial } from '@/lib/api-client';
 import { TrialCard } from './TrialCard';
 
 type TrialListProps = {
-  trials: (Trial | null)[]; // The array might contain nulls before filtering
+  trials: (Trial | null)[];
   isLoading: boolean;
-  error: string | null;
+  error: string | null | undefined;
 };
 
 // A placeholder for loading state
@@ -33,7 +33,9 @@ export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error }
     );
   }
 
-  const validTrials = trials.filter(Boolean); // A simple way to remove any null/undefined items
+  // A type predicate, not `filter(Boolean)`: the latter narrows nothing under
+  // strict null checks, so every consumer still saw `Trial | null`.
+  const validTrials = trials.filter((t): t is Trial => t !== null);
 
   if (validTrials.length === 0) {
     return <div className="p-6 bg-gray-50 text-gray-700 rounded-lg">No trials found matching your criteria.</div>;
@@ -42,10 +44,7 @@ export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error }
   return (
     <div className="grid grid-cols-1  gap-6">
       {validTrials.map((trial) => (
-        // THE FIX:
-        // 1. The key uses the reliable 'trial.id'.
-        // 2. The prop is correctly named 'trial'.
-        <TrialCard key={trial?.id} trial={trial} />
+        <TrialCard key={trial.id} trial={trial} />
       ))}
     </div>
   );

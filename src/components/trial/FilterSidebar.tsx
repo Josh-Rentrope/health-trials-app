@@ -18,7 +18,14 @@ const demographicOptions = [
     { value: 'v043_raw_value', label: '% Uninsured' },
 ];
 
-const CheckboxGroup = ({ title, options, selected, onChange }: any) => (
+type CheckboxGroupProps = {
+  title: string;
+  options: Record<string, string>;
+  selected: string[];
+  onChange: (key: string) => void;
+};
+
+const CheckboxGroup = ({ title, options, selected, onChange }: CheckboxGroupProps) => (
   <div>
     <h4 className="font-semibold text-gray-800 mb-2">{title}</h4>
     <div className="space-y-2">
@@ -38,7 +45,13 @@ const CheckboxGroup = ({ title, options, selected, onChange }: any) => (
 );
 
 
-export const FilterSidebar: React.FC<any> = ({ isLoading }) => {
+type FilterSidebarProps = {
+  isLoading?: boolean;
+  isCollapsed?: boolean;
+  setCollapsed?: (collapsed: boolean) => void;
+};
+
+export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
   // --- FIX: Get viewMode and setViewMode from the store ---
   const { filters, setFilters, resetFilters, viewMode, setViewMode , isCollapsed, setCollapsed } = useTrialStore();
 
