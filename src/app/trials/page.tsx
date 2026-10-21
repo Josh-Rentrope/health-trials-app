@@ -1,7 +1,7 @@
 // app/trials/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
 import ReactPaginate from 'react-paginate';
@@ -31,7 +31,8 @@ const MapViewCSR = dynamic(() => import('@/components/trial/MapView'), {
 
 
 export default function TrialsSearchPage() {
-  const { filters, pagination, setPagination } = useTrialStore();
+  const { filters, pagination, setPagination, setMapViewState, mapViewState, setFocusTrial } =
+    useTrialStore();
   const [debouncedFilters] = useDebounce(filters, 500);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   // --- New state to control sidebar collapse ---
@@ -55,9 +56,32 @@ export default function TrialsSearchPage() {
     placeholderData: (previous) => previous,
   });
 
-  const trials = data?.trials ?? [];
-  const totalCount = data?.totalCount ?? 0;
+  // Keep showing the last successful results when a request fails.
+  //
+  // `placeholderData` covers the normal case (a refetch that errors keeps the
+  // previous data), but it does not cover a *new* query key that errors -- change
+  // a filter while offline and the query has no previous value, so `data` is
+  // undefined and the list would blank out on the user mid-read. This ref holds
+  // the last thing that actually rendered, and the banner below says so plainly
+  // rather than pretending the results are current.
+  const lastGood = useRef<{ trials: Trial[]; totalCount: number } | undefined>(undefined);
+  if (data) lastGood.current = data;
+
+  const trials = data?.trials ?? lastGood.current?.trials ?? [];
+  const totalCount = data?.totalCount ?? lastGood.current?.totalCount ?? 0;
+  const showingStale = !!error && !!lastGood.current;
   const pageCount = Math.ceil(totalCount / pagination.limit);
+
+  // Double-clicking a card: show the map, fly to that trial's first placed
+  // location and open its popup. The map itself does the flying -- this only
+  // records the intent in the store.
+  const handleFocusTrial = (trial: Trial) => {
+    const loc = trial.locations?.[0];
+    if (!loc) return;
+    setViewMode('map');
+    setMapViewState({ ...mapViewState, latitude: loc.latitude, longitude: loc.longitude, zoom: 12 });
+    setFocusTrial(trial);
+  };
 
   const handlePageClick = ({ selected }: { selected: number }) => {
     setPagination({ page: selected });
@@ -70,6 +94,16 @@ export default function TrialsSearchPage() {
         <h1 className="text-3xl font-bold">Find a Clinical Trial</h1>
         <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
       </header>
+
+      {showingStale && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+          <span className="font-medium">Connection lost</span> — showing the last
+          results that loaded. They may be out of date.
+          {error?.message ? (
+            <span className="ml-1 opacity-70">({error.message})</span>
+          ) : null}
+        </div>
+      )}
 
       {viewMode === 'list' ? (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -92,7 +126,8 @@ export default function TrialsSearchPage() {
                 nextClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}
               />
             )}
-            <TrialList trials={trials} isLoading={isLoading} error={error?.message} />
+            <TrialList trials={trials} isLoading={isLoading} error={error?.message}
+                       onFocus={handleFocusTrial} />
             {!isLoading && trials.length > 0 && (
               <ReactPaginate
                 forcePage={pagination.page}
@@ -131,7 +166,8 @@ export default function TrialsSearchPage() {
             </div>
             {/* Re-enable pointer events for the list */}
             <main className="flex-grow overflow-y-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg pointer-events-auto">
-              <TrialList trials={trials} isLoading={isLoading} error={error?.message} />
+              <TrialList trials={trials} isLoading={isLoading} error={error?.message}
+                         onFocus={handleFocusTrial} />
             </main>
           </div>
         </div>

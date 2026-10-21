@@ -7,6 +7,8 @@ type TrialListProps = {
   trials: (Trial | null)[];
   isLoading: boolean;
   error: string | null | undefined;
+  /** Double-click a card to jump to it on the map. */
+  onFocus?: (trial: Trial) => void;
 };
 
 // A placeholder for loading state
@@ -20,7 +22,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error }) => {
+export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error, onFocus }) => {
   if (error) {
     return <div className="p-6 bg-red-50 text-red-700 rounded-lg">{error}</div>;
   }
@@ -44,7 +46,7 @@ export const TrialList: React.FC<TrialListProps> = ({ trials, isLoading, error }
   return (
     <div className="grid grid-cols-1  gap-6">
       {validTrials.map((trial) => (
-        <TrialCard key={trial.id} trial={trial} />
+        <TrialCard key={trial.id} trial={trial} onFocus={onFocus} />
       ))}
     </div>
   );

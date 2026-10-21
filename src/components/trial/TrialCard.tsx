@@ -5,10 +5,12 @@ import { InfoPill } from '@/components/ui/InfoPill';
 import Link from 'next/link';
 
 type TrialCardProps = {
-  trial: Trial; // The prop is now a clean, predictable Trial object
+  trial: Trial;
+  /** Double-click: show this trial on the map and open its popup. */
+  onFocus?: (trial: Trial) => void;
 };
 
-export const TrialCard: React.FC<TrialCardProps> = ({ trial }) => {
+export const TrialCard: React.FC<TrialCardProps> = ({ trial, onFocus }) => {
   // Destructuring from our clean `trial` object. No need for optional chaining!
 
   const { id, title, acronym, status, sponsor, phases } = trial;
@@ -18,7 +20,11 @@ export const TrialCard: React.FC<TrialCardProps> = ({ trial }) => {
   const detailUrl = `https://clinicaltrials.gov/study/${id}`;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
+    <div
+      className="bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full hover:shadow-md transition-shadow cursor-pointer"
+      onDoubleClick={() => onFocus?.(trial)}
+      title="Double-click to show this trial on the map"
+    >
       <div className="p-6 flex-grow">
         <p className="text-sm text-gray-500">{status}</p>
         <h3 className="text-lg font-bold text-gray-900 mt-1">

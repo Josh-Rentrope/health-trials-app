@@ -1,7 +1,9 @@
 // stores/trialStore.ts
 import { create } from 'zustand';
 
-import { ViewState } from 'react-map-gl/mapbox'; 
+import { ViewState } from 'react-map-gl/mapbox';
+// Type-only, so this does not create a runtime cycle with the data layer.
+import type { Trial } from '@/lib/api-client';
 
 export interface BoundingBox {
   sw: { lng: number; lat: number };
@@ -40,6 +42,18 @@ interface TrialState {
   setViewMode: (mode: ViewMode) => void;
   setMapViewState: (viewState: Partial<ViewState>) => void;
   resetFilters: () => void;
+
+  /**
+   * A trial the user asked the map to show — set by double-clicking a result
+   * card. The map watches this, flies to the trial's first placed location and
+   * opens its popup, then clears it.
+   *
+   * It lives in the store rather than in props because the card and the map are
+   * in different branches of the tree, and only one of them is mounted at a
+   * time (the list and map views are mutually exclusive).
+   */
+  focusTrial: Trial | null;
+  setFocusTrial: (trial: Trial | null) => void;
 }
 
 const initialFilters: FilterState = {
@@ -84,4 +98,7 @@ export const useTrialStore = create<TrialState>((set) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   setMapViewState: (viewState) => set({ mapViewState: viewState }),
   resetFilters: () => set({ filters: initialFilters }),
+
+  focusTrial: null,
+  setFocusTrial: (trial) => set({ focusTrial: trial }),
 }));

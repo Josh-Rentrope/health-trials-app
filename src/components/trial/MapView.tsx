@@ -52,7 +52,8 @@ type MapViewProps = {
 
 const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   const mapRef = useRef<MapRef>(null);
-  const { mapViewState, setMapViewState, filters, setFilters, viewMode } = useTrialStore();
+  const { mapViewState, setMapViewState, filters, setFilters, viewMode,
+          focusTrial, setFocusTrial } = useTrialStore();
   const [debouncedFilters] = useDebounce(filters, 500);
   const [activePopup, setActivePopup] = useState<
     | { type: 'trial'; data: Trial; longitude: number; latitude: number }
@@ -84,6 +85,12 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     placeholderData: (previous) => previous,
   });
 
+  // Hold the last map we successfully painted, so a failed request leaves the
+  // current view alone instead of blanking the map under the user's cursor.
+  const lastGoodMap = useRef<MapData | undefined>(undefined);
+  if (mapData) lastGoodMap.current = mapData;
+  const shownMap: MapData = mapData ?? lastGoodMap.current ?? [];
+
   const { data: correlationData } = useQuery<CountyCorrelation[]>({
     queryKey: ['correlationData', filters.correlationCondition, filters.demographicVariable],
     queryFn: () =>
@@ -99,8 +106,8 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   });
 
   const points = useMemo<PointFeature[]>(() => {
-    if (!mapData) return [];
-    return mapData
+    if (!shownMap.length) return [];
+    return shownMap
       .filter((item): item is Trial => !item.is_cluster)
       .flatMap((trial) =>
         (trial.locations ?? []).map((loc, index) => ({
@@ -115,7 +122,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
           geometry: { type: 'Point' as const, coordinates: [loc.longitude, loc.latitude] },
         })),
       );
-  }, [mapData]);
+  }, [shownMap]);
 
   const { clusters, supercluster } = useSupercluster({
     points,
@@ -125,6 +132,34 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     zoom: mapViewState.zoom ?? 3,
     options: { radius: 75, maxZoom: 20 },
   });
+
+  // A card was double-clicked: fly to it and open its popup.
+  //
+  // The page has already switched to the map view and set the view state, so the
+  // controlled <MapGL> would move anyway; `flyTo` is what makes it read as an
+  // intentional move rather than a jump. It is guarded because the map may not
+  // have finished loading on the very first render after the switch.
+  useEffect(() => {
+    if (!focusTrial) return;
+    const loc = focusTrial.locations?.[0];
+    if (!loc) {
+      setFocusTrial(null);
+      return;
+    }
+    const map = mapRef.current?.getMap();
+    if (map?.isStyleLoaded()) {
+      map.flyTo({ center: [loc.longitude, loc.latitude], zoom: 12, duration: 900 });
+    }
+    setActivePopup({
+      type: 'trial',
+      data: focusTrial,
+      longitude: loc.longitude,
+      latitude: loc.latitude,
+    });
+    // Cleared so the same card can be focused again, and so a re-render does not
+    // re-open a popup the user has closed.
+    setFocusTrial(null);
+  }, [focusTrial, setFocusTrial]);
 
   const handleMapInteraction = () => {
     onMapMove?.();
@@ -336,7 +371,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
       mapStyle="mapbox://styles/mapbox/streets-v11"
     >
       {currentZoom < CLUSTER_THRESHOLD
-        ? mapData?.map((item) => {
+        ? shownMap.map((item) => {
             if (item.is_cluster) {
               const cluster = item as ApiCluster;
               const circleSize = Math.min(80, 30 + (cluster.point_count / 100) * 20);
