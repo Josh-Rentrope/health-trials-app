@@ -46,6 +46,8 @@ async function getJson<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export interface StudyLocation {
   location_text: string;
+  city?: string | null;
+  country_code?: string | null;
   latitude: number;
   longitude: number;
   /** Which geocode tier produced this point: postal | city | admin1 | country | none. */
@@ -62,6 +64,10 @@ export interface ApiStudy {
   phase?: string | null;
   sponsor?: string | null;
   enrollment_count?: number | null;
+  min_age_years?: number | null;
+  max_age_years?: number | null;
+  sex?: string | null;
+  healthy_volunteers?: boolean | null;
   locations: StudyLocation[];
 }
 
@@ -96,7 +102,18 @@ export interface Trial {
   status: string;
   sponsor: string;
   phases: string[];
-  locations?: { latitude: number; longitude: number; precision?: string | null }[];
+  /** Structured eligibility, straight from the registry. */
+  minAgeYears?: number | null;
+  maxAgeYears?: number | null;
+  sex?: string | null;
+  healthyVolunteers?: boolean | null;
+  locations?: {
+    latitude: number;
+    longitude: number;
+    precision?: string | null;
+    city?: string | null;
+    countryCode?: string | null;
+  }[];
 }
 
 /**
@@ -204,10 +221,16 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
     phases: study.phase
       ? study.phase.split('|').map((p) => `Phase ${p.replace('PHASE', '').replace('EARLY ', '')}`)
       : [],
+    minAgeYears: study.min_age_years ?? null,
+    maxAgeYears: study.max_age_years ?? null,
+    sex: study.sex ?? null,
+    healthyVolunteers: study.healthy_volunteers ?? null,
     locations: (study.locations ?? []).map((l) => ({
       latitude: l.latitude,
       longitude: l.longitude,
       precision: l.precision ?? null,
+      city: l.city ?? null,
+      countryCode: l.country_code ?? null,
     })),
   };
 }

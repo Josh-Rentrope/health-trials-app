@@ -33,6 +33,15 @@ interface TrialState {
   viewMode: ViewMode;
   mapViewState: Partial<ViewState>;
 
+  /**
+   * The reader's own position, if they allowed it. Used to show "3.2 mi" on a
+   * card instead of a city name -- a distance is a decision, a city is trivia.
+   * Null until geolocation resolves or is refused, in which case cards fall back
+   * to the city.
+   */
+  userLocation: { latitude: number; longitude: number } | null;
+  setUserLocation: (loc: { latitude: number; longitude: number } | null) => void;
+
   isCollapsed?: boolean; // New prop to control collapsed state
   setCollapsed?: (collapsed: boolean) => void; // N
 
@@ -58,7 +67,7 @@ interface TrialState {
 
 const initialFilters: FilterState = {
   condition: '',
-  location: 'United States',
+  location: '',
   status: [],
   phase: [],
   correlationCondition: '',
@@ -70,7 +79,7 @@ const initialFilters: FilterState = {
 export const useTrialStore = create<TrialState>((set) => ({
   filters: {
     condition: '',
-    location: 'United States',
+    location: '',
     status: [],
     phase: [],
     correlationCondition:"",
@@ -101,4 +110,7 @@ export const useTrialStore = create<TrialState>((set) => ({
 
   focusTrial: null,
   setFocusTrial: (trial) => set({ focusTrial: trial }),
+
+  userLocation: null,
+  setUserLocation: (loc) => set({ userLocation: loc }),
 }));

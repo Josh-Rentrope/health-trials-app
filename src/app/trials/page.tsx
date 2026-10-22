@@ -1,7 +1,7 @@
 // app/trials/page.tsx
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
 import ReactPaginate from 'react-paginate';
@@ -23,7 +23,7 @@ const MapViewCSR = dynamic(() => import('@/components/trial/MapView'), {
   ssr: false, 
   loading: () => (
     <div className="flex items-center justify-center w-full h-full bg-gray-100">
-      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <Loader2 className="h-8 w-8 animate-spin text-accent" />
       <p className="ml-2 text-gray-600">Loading Map...</p>
     </div>
   ),
@@ -33,10 +33,28 @@ const MapViewCSR = dynamic(() => import('@/components/trial/MapView'), {
 export default function TrialsSearchPage() {
   const { filters, pagination, setPagination, setMapViewState, mapViewState, setFocusTrial } =
     useTrialStore();
+  const setUserLocation = useTrialStore((s) => s.setUserLocation);
   const [debouncedFilters] = useDebounce(filters, 500);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   // --- New state to control sidebar collapse ---
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Ask for the reader's position once, so cards can say "3.2 mi" instead of a
+  // city name. It is requested, never required: a refusal leaves `userLocation`
+  // null and every card falls back to the city. No permission prompt on load
+  // blocking anything, and no location sent to the API.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        setUserLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        }),
+      () => setUserLocation(null),
+      { timeout: 8000, maximumAge: 10 * 60 * 1000 },
+    );
+  }, [setUserLocation]);
 
   const { data, isLoading, error } = useQuery<{ trials: Trial[], totalCount: number }>({
     queryKey: ['trials', debouncedFilters, pagination, viewMode],
@@ -91,12 +109,12 @@ export default function TrialsSearchPage() {
   return (
     <div className="p-4">
       <header className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Find a Clinical Trial</h1>
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink">Find a Clinical Trial</h1>
         <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
       </header>
 
       {showingStale && (
-        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <div className="mb-4 rounded-md border border-warn bg-warn-soft px-4 py-2 text-[13px] text-warn">
           <span className="font-medium">Connection lost</span> — showing the last
           results that loaded. They may be out of date.
           {error?.message ? (
@@ -120,7 +138,7 @@ export default function TrialsSearchPage() {
                 pageCount={pageCount}
                 onPageChange={handlePageClick}
                 containerClassName={'flex justify-center items-center gap-2 mb-6'}
-                activeClassName={'bg-purple-600 text-white'}
+                activeClassName={'bg-accent text-white'}
                 pageClassName={'px-3 py-1 rounded-md'}
                 previousClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}
                 nextClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}
@@ -136,7 +154,7 @@ export default function TrialsSearchPage() {
                 pageCount={pageCount}
                 onPageChange={handlePageClick}
                 containerClassName={'flex justify-center items-center gap-2 mt-8'}
-                activeClassName={'bg-purple-600 text-white'}
+                activeClassName={'bg-accent text-white'}
                 pageClassName={'px-3 py-1 rounded-md'}
                 previousClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}
                 nextClassName={'px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200'}

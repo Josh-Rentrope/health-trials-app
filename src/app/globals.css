@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Design tokens.
+ *
+ * The app previously used `purple-600` for buttons, pills, links, pagination,
+ * clusters and pins — one hue at full saturation on every surface, which reads as
+ * a framework default rather than a designed product. There is now a single
+ * accent, used for actions only, and everything else is neutral.
+ *
+ * Tailwind v4 generates utilities from these: `--color-accent` gives `bg-accent`,
+ * `text-accent`, `border-accent`, and so on.
+ */
+@theme {
+  --color-ink: #0b1220;          /* body text */
+  --color-muted: #5b6472;        /* secondary text */
+  --color-line: #e6e8ec;         /* borders, dividers */
+  --color-surface: #ffffff;      /* cards */
+  --color-canvas: #f7f8fa;       /* page background */
+
+  --color-accent: #5b4bd6;       /* primary action ONLY */
+  --color-accent-hover: #4a3cc0;
+  --color-accent-soft: #edebfb;  /* tinted surfaces */
+
+  --color-good: #0f9d58;         /* recruiting / meets criteria */
+  --color-good-soft: #e6f4ec;
+  --color-warn: #b26a00;         /* closing soon / needs confirmation */
+  --color-warn-soft: #fdf3e3;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-lift: 0 6px 16px rgb(11 18 32 / 0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/*
+ * One focus style everywhere. Non-negotiable: this project claims Section 508 and
+ * WCAG compliance elsewhere, so a visible focus ring on every interactive element
+ * is a requirement rather than a nicety.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Counts and stats should align in columns rather than wobble per digit. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

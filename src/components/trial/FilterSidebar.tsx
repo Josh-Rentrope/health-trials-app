@@ -27,13 +27,13 @@ type CheckboxGroupProps = {
 
 const CheckboxGroup = ({ title, options, selected, onChange }: CheckboxGroupProps) => (
   <div>
-    <h4 className="font-semibold text-gray-800 mb-2">{title}</h4>
+    <h4 className="font-semibold text-ink mb-2">{title}</h4>
     <div className="space-y-2">
       {Object.entries(options).map(([key, label]) => (
-        <label key={key} className="flex items-center gap-2 text-gray-800">
+        <label key={key} className="flex items-center gap-2 text-ink">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
             checked={selected.includes(key)}
             onChange={() => onChange(key)}
           />
@@ -102,7 +102,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
   const renderTrialFilters = () => (
     <>
       <div className="space-y-2">
-            <label htmlFor="condition" className="font-semibold text-gray-800 text-sm">Condition or Disease</label>
+            <label htmlFor="condition" className="font-semibold text-ink text-sm">Condition or Disease</label>
             <div className="flex items-center gap-2">
               <input type="text" name="condition" id="condition" value={filters.condition} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
               {browserSupportsSpeechRecognition && (
@@ -114,7 +114,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
           </div>
           
           {/* <div className="space-y-2">
-            <label htmlFor="location" className="font-semibold text-gray-800 text-sm">Location</label>
+            <label htmlFor="location" className="font-semibold text-ink text-sm">Location</label>
             <input type="text" name="location" id="location" value={filters.location} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
           </div>
            */}
@@ -157,12 +157,12 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
   const renderCorrelationFilters = () => (
       <>
         <div className="space-y-2">
-            <label htmlFor="correlationCondition" className="font-semibold text-gray-800 text-sm">Condition of Interest</label>
+            <label htmlFor="correlationCondition" className="font-semibold text-ink text-sm">Condition of Interest</label>
             <input type="text" name="correlationCondition" id="correlationCondition" value={filters.correlationCondition} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
         </div>
         <div className="space-y-2">
-            <label htmlFor="demographicVariable" className="font-semibold text-gray-800 text-sm">Demographic Focus</label>
-            <select name="demographicVariable" id="demographicVariable" value={filters.demographicVariable} onChange={handleInputChange} className="w-full border-gray-300 text-gray-800 rounded-md shadow-sm">
+            <label htmlFor="demographicVariable" className="font-semibold text-ink text-sm">Demographic Focus</label>
+            <select name="demographicVariable" id="demographicVariable" value={filters.demographicVariable} onChange={handleInputChange} className="w-full border-gray-300 text-ink rounded-md shadow-sm">
                 <option value="">Select a demographic</option>
                 {demographicOptions.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -181,7 +181,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
         <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <SlidersHorizontal className="w-5 h-5" /> Filters
         </h3>
-        <button onClick={handleClear} className="text-sm text-purple-600 hover:underline">
+        <button onClick={handleClear} className="text-sm text-accent hover:underline">
             Clear All
         </button>
       </div>
@@ -194,10 +194,10 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
       >
         <div className="flex border-b">
             {/* --- FIX: Use handleTabClick to update global state --- */}
-            <button onClick={() => handleTabClick('trials')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'trials' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:bg-gray-100'}`}>
+            <button onClick={() => handleTabClick('trials')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'trials' ? 'text-accent border-b-2 border-accent bg-accent-soft text-accent' : 'text-muted hover:bg-canvas'}`}>
                 <Search size={16} /> Trial Search
             </button>
-            <button onClick={() => handleTabClick('correlation')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'correlation' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:bg-gray-100'}`}>
+            <button onClick={() => handleTabClick('correlation')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'correlation' ? 'text-accent border-b-2 border-accent bg-accent-soft text-accent' : 'text-muted hover:bg-canvas'}`}>
                 <BarChart size={16} /> Correlation Map
             </button>
         </div>

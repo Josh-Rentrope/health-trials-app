@@ -12,7 +12,7 @@ type ViewToggleProps = {
 
 export const ViewToggle: React.FC<ViewToggleProps> = ({ viewMode, setViewMode }) => {
   const baseClasses = 'p-2 rounded-md transition-colors';
-  const activeClasses = 'bg-purple-600 text-white';
+  const activeClasses = 'bg-accent text-white';
   const inactiveClasses = 'bg-gray-200 text-gray-600 hover:bg-gray-300';
 
   return (
