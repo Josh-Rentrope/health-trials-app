@@ -375,6 +375,7 @@ export interface SegmentResponse {
 export async function fetchSegment(body: {
   condition?: string;
   status?: string;
+  phase?: string;
   answers: {
     age?: number | null;
     age_min?: number | null;

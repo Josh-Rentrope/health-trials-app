@@ -9,6 +9,11 @@ import { useTrialStore, ViewMode } from '@/stores/trialStore';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 
+// The correlation map needs its county/demographic data reloaded before it is
+// useful again, so the entry point is hidden rather than deleted. Flip this to
+// true once the data is back; the view, query and map layers are all still here.
+const SHOW_CORRELATION = false;
+
 const demographicOptions = [
     { value: 'v021_raw_value', label: '% 65 and over' },
     { value: 'v001_raw_value', label: 'Premature Death Rate' },
@@ -173,7 +178,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
   );
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-md">
+    <div className="bg-white rounded-lg border border-gray-200 shadow-[var(--shadow-lift)]">
       <div
         className={`flex justify-between items-center p-6 ${setCollapsed ? 'cursor-pointer' : ''}`}
         onClick={handleToggleCollapse}
@@ -192,18 +197,22 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
           isCollapsed ? 'max-h-0' : 'max-h-[1000px]' // Animate max-height for smooth collapse
         }`}
       >
-        <div className="flex border-b">
-            {/* --- FIX: Use handleTabClick to update global state --- */}
-            <button onClick={() => handleTabClick('trials')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'trials' ? 'text-accent border-b-2 border-accent bg-accent-soft text-accent' : 'text-muted hover:bg-canvas'}`}>
-                <Search size={16} /> Trial Search
-            </button>
-            <button onClick={() => handleTabClick('correlation')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'correlation' ? 'text-accent border-b-2 border-accent bg-accent-soft text-accent' : 'text-muted hover:bg-canvas'}`}>
-                <BarChart size={16} /> Correlation Map
-            </button>
-        </div>
-        
+        {SHOW_CORRELATION && (
+          <div className="flex border-b">
+              {/* --- FIX: Use handleTabClick to update global state --- */}
+              <button onClick={() => handleTabClick('trials')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'trials' ? 'text-accent border-b-2 border-accent bg-accent-soft text-accent' : 'text-muted hover:bg-canvas'}`}>
+                  <Search size={16} /> Trial Search
+              </button>
+              <button onClick={() => handleTabClick('correlation')} className={`flex-1 p-3 text-sm font-medium flex items-center justify-center gap-2 ${viewMode === 'correlation' ? 'text-accent border-b-2 border-accent bg-accent-soft text-accent' : 'text-muted hover:bg-canvas'}`}>
+                  <BarChart size={16} /> Correlation Map
+              </button>
+          </div>
+        )}
+
         <div className="p-6 space-y-6">
-            {viewMode === 'trials' ? renderTrialFilters() : renderCorrelationFilters()}
+            {SHOW_CORRELATION && viewMode === 'correlation'
+              ? renderCorrelationFilters()
+              : renderTrialFilters()}
         </div>
       </div>
     </div>

@@ -445,7 +445,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
           onClose={() => setActivePopup(null)}
           anchor="bottom"
         >
-          <div className="p-2 bg-white rounded-lg shadow-lg max-w-xs w-64">
+          <div className="p-2 bg-white rounded-lg shadow-[var(--shadow-lift)] max-w-xs w-64">
             <h4 className="font-bold text-base text-gray-800">{county.county_name}</h4>
             <p className="text-sm text-gray-600">
               Value:{' '}
@@ -545,7 +545,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                   longitude={site.longitude}
                 >
                   <div
-                    className="flex cursor-pointer items-center justify-center rounded-full text-[11px] font-medium text-white shadow-md transition-transform duration-150 hover:scale-110"
+                    className="flex cursor-pointer items-center justify-center rounded-full text-[11px] font-medium text-white shadow-sm transition-transform duration-150 hover:scale-110"
                     style={{ width: `${size}px`, height: `${size}px`, backgroundColor: CLUSTER_RAMP[3] }}
                     title={`${site.point_count} trials at this location`}
                     onMouseEnter={() => setHovered({
@@ -703,7 +703,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
       {/* What the current viewport holds. Without it the map filters invisibly
           and the user cannot tell whether their panning did anything. */}
       <div className="pointer-events-none absolute left-3 top-3 z-10">
-        <div className="tnum rounded-full border border-line bg-surface/95 px-3 py-1.5 text-[12px] font-medium text-ink shadow-sm backdrop-blur">
+        <div className="tnum rounded-full border border-line bg-surface/95 px-3 py-1.5 text-[12px] font-medium text-ink shadow-sm backdrop-blur-sm">
           {viewportTotal.toLocaleString()} {viewportTotal === 1 ? 'trial' : 'trials'} in view
         </div>
       </div>

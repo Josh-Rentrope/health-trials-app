@@ -42,22 +42,22 @@ export function ConversationList() {
 
   return (
     <div className="p-4">
-      <div className="flex justify-between items-center mb-4 text-gray-800">
+      <div className="flex justify-between items-center mb-4 text-ink">
         <h2 className="text-xl font-bold">Chats</h2>
         <button
           onClick={() => newConversationMutation.mutate()}
           disabled={newConversationMutation.isPending}
-          className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50"
+          className="p-2 rounded-full hover:bg-canvas disabled:opacity-50"
           title="Start a new conversation"
         >
           <PlusCircle size={24} />
         </button>
       </div>
 
-      {isLoading && <p className="text-gray-800">Loading conversations...</p>}
-      {error && <p className="text-red-500">Error: {(error as Error).message}</p>}
+      {isLoading && <p className="text-muted">Loading conversations...</p>}
+      {error && <p className="text-warn">Error: {(error as Error).message}</p>}
       {!isLoading && !error && conversations?.length === 0 && (
-        <p className="text-gray-500 text-sm">No conversations yet.</p>
+        <p className="text-muted text-sm">No conversations yet.</p>
       )}
 
       <ul className="space-y-2">
@@ -79,8 +79,8 @@ export function ConversationList() {
             </div>
             <button
               onClick={(e) => handleDelete(e, conv.id)}
-              className={`p-2 rounded-full hover:bg-red-500/20 ${
-                activeConversationId === conv.id ? 'hover:text-red-300' : 'text-gray-500 hover:text-red-600'
+              className={`p-2 rounded-full hover:bg-warn-soft ${
+                activeConversationId === conv.id ? 'hover:text-white/80' : 'text-muted hover:text-warn'
               }`}
               title="Delete conversation"
             >

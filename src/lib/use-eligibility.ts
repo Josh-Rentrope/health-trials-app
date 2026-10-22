@@ -35,17 +35,19 @@ export interface NextQuestion {
 export function useNextQuestion(
   condition: string | undefined,
   status: string | undefined,
+  phase: string | undefined,
   answers: EligibilityAnswers,
   enabled: boolean,
 ): NextQuestion {
   const { data, isFetching, error } = useQuery({
     // The endpoint is deterministic arithmetic over the pool, so a short
     // staleTime is honest and saves a round trip when a step is revisited.
-    queryKey: ['segment', condition ?? '', status ?? '', answers],
+    queryKey: ['segment', condition ?? '', status ?? '', phase ?? '', answers],
     queryFn: () =>
       fetchSegment({
         condition: condition || undefined,
         status: status || undefined,
+        phase: phase || undefined,
         answers: {
           age: answers.age,
           age_min: answers.ageMin,

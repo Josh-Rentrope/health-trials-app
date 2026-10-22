@@ -29,7 +29,8 @@
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 
-  --shadow-lift: 0 6px 16px rgb(11 18 32 / 0.08);
+  /* Deliberately tight: a 2-5px blur reads as lift, a 16px one reads as fog. */
+  --shadow-lift: 0 2px 4px rgb(11 18 32 / 0.10);
 }
 
 html {

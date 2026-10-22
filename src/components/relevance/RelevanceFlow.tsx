@@ -133,6 +133,7 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
   const { question, total, hasLoaded, isFetching, error } = useNextQuestion(
     condition.trim() || undefined,
     storeFilters.status.join(','),
+    storeFilters.phase.join(','),
     answers,
     step === 'questions',
   );
@@ -159,6 +160,10 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
   const resultFilters = useMemo(
     () => ({
       condition: condition.trim() || undefined,
+      // The preview must carry the same non-relevance filters the search does,
+      // or it shows a different set of studies than the list it is previewing.
+      status: storeFilters.status,
+      phase: storeFilters.phase,
       age: null as number | null,
       ageMin,
       ageMax,
@@ -168,7 +173,17 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
       page: 0,
       limit: variant === 'dialog' ? 8 : 25,
     }),
-    [condition, ageMin, ageMax, sex, healthy, facts, variant],
+    [
+      condition,
+      storeFilters.status,
+      storeFilters.phase,
+      ageMin,
+      ageMax,
+      sex,
+      healthy,
+      facts,
+      variant,
+    ],
   );
 
   const {
@@ -184,11 +199,17 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
 
   const shortlist: Trial[] = useMemo(() => {
     const rows = data?.trials ?? [];
-    return [...rows].sort(
-      (a, b) =>
+    return [...rows].sort((a, b) => {
+      const rank =
         (FIT_RANK[a.fit?.verdict ?? 'check_with_site'] ?? 1) -
-        (FIT_RANK[b.fit?.verdict ?? 'check_with_site'] ?? 1),
-    );
+        (FIT_RANK[b.fit?.verdict ?? 'check_with_site'] ?? 1);
+      if (rank !== 0) return rank;
+      // Among equal verdicts, fewer open criteria is the more complete match.
+      const unknowns =
+        (a.fit?.unknown_count ?? 99) - (b.fit?.unknown_count ?? 99);
+      if (unknowns !== 0) return unknowns;
+      return 0;
+    });
   }, [data]);
 
   const answer = (has: boolean) => {

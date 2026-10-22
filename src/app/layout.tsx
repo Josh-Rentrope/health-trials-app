@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { NavLink } from '@/components/NavLink';
-import { ChatFab } from '@/components/chat/ChatFab';
+import { ChatDock } from '@/components/chat/ChatDock';
 import { Providers } from './providers';
 import "./globals.css";
 
@@ -50,8 +50,8 @@ export default function RootLayout({
             </nav>
           </header>
           {children}
-          {/* The assistant's entry point, lower left, on every page but /chat. */}
-          <ChatFab />
+          {/* The assistant opens here, as a popup, on every page but /chat. */}
+          <ChatDock />
         </Providers>
       </body>
     </html>

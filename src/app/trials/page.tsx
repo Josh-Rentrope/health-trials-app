@@ -231,7 +231,7 @@ export default function TrialsSearchPage() {
               />
             </div>
             {/* Re-enable pointer events for the list */}
-            <main className="flex-grow overflow-y-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg pointer-events-auto">
+            <main className="flex-grow overflow-y-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-[var(--shadow-lift)] pointer-events-auto">
               <TrialList trials={trials} isLoading={isLoading} error={error?.message}
                          onFocus={handleFocusTrial} />
             </main>
