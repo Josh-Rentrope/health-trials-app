@@ -50,6 +50,11 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       setNewMessage('');
     },
+    onError: () => {
+      // The send may have been recorded server-side before the failure; show it
+      // rather than making the reader retype the question.
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+    },
   });
 
   useEffect(() => {
@@ -91,6 +96,15 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
             <div className="flex justify-start">
               <div className="max-w-md p-3 rounded-lg bg-canvas text-ink animate-pulse">
                 Searching trials...
+              </div>
+            </div>
+          )}
+
+          {postMessageMutation.error && (
+            <div className="flex justify-start">
+              <div className="max-w-md rounded-lg border border-warn bg-warn-soft p-3 text-[13px] leading-5 text-warn">
+                Sorry — I could not reach the assistant just now. Please try
+                again in a moment.
               </div>
             </div>
           )}
