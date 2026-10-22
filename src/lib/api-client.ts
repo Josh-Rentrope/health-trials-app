@@ -117,6 +117,10 @@ export interface Trial {
   status: string;
   sponsor: string;
   phases: string[];
+  /** Registry condition text, shown in the detail modal. */
+  conditions?: string | null;
+  /** Planned enrolment, shown in the detail modal. */
+  enrollmentCount?: number | null;
   /** Structured eligibility, straight from the registry. */
   minAgeYears?: number | null;
   maxAgeYears?: number | null;
@@ -246,6 +250,8 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
     phases: study.phase
       ? study.phase.split('|').map((p) => `Phase ${p.replace('PHASE', '').replace('EARLY ', '')}`)
       : [],
+    conditions: study.conditions ?? null,
+    enrollmentCount: study.enrollment_count ?? null,
     minAgeYears: study.min_age_years ?? null,
     maxAgeYears: study.max_age_years ?? null,
     sex: study.sex ?? null,
@@ -313,6 +319,18 @@ export async function fetchMapData(
   if (filters.condition) qs.append('q', String(filters.condition));
   if (Array.isArray(filters.status) && filters.status.length) qs.append('status', filters.status.join(','));
   if (Array.isArray(filters.phase) && filters.phase.length) qs.append('phase', filters.phase.join(','));
+  // The cluster counts must reflect the same pool as the list, including the
+  // relevance answers; otherwise the zoomed-out map is a different search.
+  if (typeof filters.age === 'number') qs.append('age', String(filters.age));
+  if (typeof filters.ageMin === 'number') qs.append('age_min', String(filters.ageMin));
+  if (typeof filters.ageMax === 'number') qs.append('age_max', String(filters.ageMax));
+  if (filters.sex) qs.append('sex', filters.sex);
+  if (typeof filters.healthyVolunteer === 'boolean') {
+    qs.append('healthy_volunteer', String(filters.healthyVolunteer));
+  }
+  for (const [key, has] of Object.entries(filters.facts ?? {})) {
+    qs.append('fact', `${key}:${has ? 'yes' : 'no'}`);
+  }
 
   type RawMapItem = ApiCluster | ApiSite | ApiStudy;
   const raw = await getJson<RawMapItem[]>(`/studies/map-data?${qs}`);

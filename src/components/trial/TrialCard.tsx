@@ -12,29 +12,13 @@ import { MapPin } from 'lucide-react';
 import { Trial } from '@/lib/api-client';
 import { useTrialStore } from '@/stores/trialStore';
 import { FitBadge } from '@/components/trial/FitBadge';
+import { ageLabel, sexLabel, statusTone } from '@/lib/trial-display';
 
 type TrialCardProps = {
   trial: Trial;
-  /** Double-click: show this trial on the map and open its popup. */
-  onFocus?: (trial: Trial) => void;
+  /** Single click: open the detail modal. */
+  onOpen?: (trial: Trial) => void;
 };
-
-/**
- * Status colour. Recruiting is the only state worth a positive colour; everything
- * that is not currently enrolling is deliberately grey, because a green badge on a
- * terminated trial would be actively misleading.
- */
-function statusTone(status: string): { dot: string; text: string } {
-  const s = status.toLowerCase();
-  if (s.includes('recruiting') && !s.includes('not yet') && !s.includes('not recruiting')) {
-    return { dot: 'bg-good', text: 'text-good' };
-  }
-  if (s.includes('active')) return { dot: 'bg-accent', text: 'text-accent' };
-  if (s.includes('not yet') || s.includes('enrolling')) {
-    return { dot: 'bg-warn', text: 'text-warn' };
-  }
-  return { dot: 'bg-muted/40', text: 'text-muted' };
-}
 
 function haversineMiles(
   a: { latitude: number; longitude: number },
@@ -51,23 +35,7 @@ function haversineMiles(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** "18+", "18–75", "up to 75", or "All ages". */
-function ageLabel(minAge?: number | null, maxAge?: number | null): string | null {
-  if (minAge != null && maxAge != null) return `${minAge}–${maxAge}`;
-  if (minAge != null) return `${minAge}+`;
-  if (maxAge != null) return `up to ${maxAge}`;
-  return null;
-}
-
-function sexLabel(sex?: string | null): string | null {
-  if (!sex) return null;
-  const s = sex.toUpperCase();
-  if (s === 'FEMALE') return 'Women only';
-  if (s === 'MALE') return 'Men only';
-  return null; // ALL is the default; saying "All sexes" on every card is noise
-}
-
-export const TrialCard: React.FC<TrialCardProps> = ({ trial, onFocus }) => {
+export const TrialCard: React.FC<TrialCardProps> = ({ trial, onOpen }) => {
   const { id, title, acronym, status, sponsor, phases } = trial;
   const userLocation = useTrialStore((s) => s.userLocation);
 
@@ -113,9 +81,24 @@ export const TrialCard: React.FC<TrialCardProps> = ({ trial, onFocus }) => {
     <div
       className={`group flex h-full flex-col rounded-xl border border-line bg-surface p-5
                  transition duration-150 ease-out hover:-translate-y-px hover:shadow-[var(--shadow-lift)]
-                 ${onFocus ? 'cursor-pointer' : ''}`}
-      onDoubleClick={onFocus ? () => onFocus(trial) : undefined}
-      title={onFocus ? 'Double-click to show this trial on the map' : undefined}
+                 ${onOpen ? 'cursor-pointer' : ''}`}
+      onClick={onOpen ? () => onOpen(trial) : undefined}
+      onKeyDown={
+        onOpen
+          ? (e) => {
+              // Only when the card itself has focus. Enter on the "View trial"
+              // link must follow the link, not open this modal as well.
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpen(trial);
+              }
+            }
+          : undefined
+      }
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      title={onOpen ? 'View details' : undefined}
     >
       {/* Status and shape, at a glance */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">

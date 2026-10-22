@@ -60,6 +60,10 @@ type ClusterProperties = {
   cluster?: boolean;
   point_count?: number;
   locationKey?: string;
+  // Present on individual points (the non-cluster branch).
+  trialId?: string;
+  trialTitle?: string;
+  precision?: string | null;
 };
 
 type MapViewProps = {
@@ -679,13 +683,59 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                 </Marker>
               );
             }
+            // Individual points above the server threshold. These had no click
+            // handler and no cursor at all -- the pins above CLUSTER_THRESHOLD
+            // were decorative, which is why clicking one did nothing.
+            const trial = trialById.get(props.trialId ?? '');
+            if (!trial) {
+              return (
+                <Marker
+                  key={`trial-${props.locationKey ?? `${latitude}-${longitude}`}`}
+                  latitude={latitude}
+                  longitude={longitude}
+                >
+                  <div style={{ fontSize: '20px' }}>📍</div>
+                </Marker>
+              );
+            }
             return (
               <Marker
                 key={`trial-${props.locationKey ?? `${latitude}-${longitude}`}`}
                 latitude={latitude}
                 longitude={longitude}
               >
-                <div style={{ fontSize: '20px' }}>📍</div>
+                <div
+                  style={{ fontSize: '20px', cursor: 'pointer' }}
+                  className={
+                    props.precision === 'country' || props.precision === 'admin1'
+                      ? 'opacity-40'
+                      : ''
+                  }
+                  onMouseEnter={() =>
+                    setHovered({
+                      longitude,
+                      latitude,
+                      title:
+                        trial.title.length > 58
+                          ? trial.title.slice(0, 58) + '…'
+                          : trial.title,
+                      meta: [trial.status, trial.locations?.[0]?.city]
+                        .filter(Boolean)
+                        .join(' · '),
+                    })
+                  }
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() =>
+                    setActivePopup({
+                      type: 'trial',
+                      data: trial,
+                      longitude,
+                      latitude,
+                    })
+                  }
+                >
+                  📍
+                </div>
               </Marker>
             );
           })}

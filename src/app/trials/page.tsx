@@ -9,6 +9,7 @@ import { FilterSidebar } from '@/components/trial/FilterSidebar';
 import { TrialList } from '@/components/trial/TrialList';
 import { ViewToggle } from '@/components/trial/ViewToggle';
 import { Questionnaire } from '@/components/trial/Questionnaire';
+import { TrialDetailModal } from '@/components/trial/TrialDetailModal';
 import { RelevanceChip } from '@/components/relevance/RelevanceChip';
 import { useTrialStore } from '@/stores/trialStore';
 import { fetchTrialsFromApi, StudyFilters, Trial } from '@/lib/api-client';
@@ -33,12 +34,20 @@ const MapViewCSR = dynamic(() => import('@/components/trial/MapView'), {
 
 
 export default function TrialsSearchPage() {
-  const { filters, pagination, setPagination, setMapViewState, mapViewState, setFocusTrial } =
-    useTrialStore();
+  const {
+    filters,
+    pagination,
+    setPagination,
+    setMapViewState,
+    mapViewState,
+    setFocusTrial,
+    focusTrial,
+  } = useTrialStore();
   const setUserLocation = useTrialStore((s) => s.setUserLocation);
   const [debouncedFilters] = useDebounce(filters, 500);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
+  const [selectedTrial, setSelectedTrial] = useState<Trial | null>(null);
   // --- New state to control sidebar collapse ---
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -93,7 +102,14 @@ export default function TrialsSearchPage() {
   const showingStale = !!error && !!lastGood.current;
   const pageCount = Math.ceil(totalCount / pagination.limit);
 
-  // Double-clicking a card: show the map, fly to that trial's first placed
+  // A trial can be focused from another page (the relevance shortlist's "View on
+  // map"). The map only mounts in map mode, so switch first; the map's own effect
+  // then flies to the trial and opens its popup.
+  useEffect(() => {
+    if (focusTrial) setViewMode('map');
+  }, [focusTrial]);
+
+  // From a card's detail modal: show the map, fly to that trial's first placed
   // location and open its popup. The map itself does the flying -- this only
   // records the intent in the store.
   const handleFocusTrial = (trial: Trial) => {
@@ -177,7 +193,7 @@ export default function TrialsSearchPage() {
               />
             )}
             <TrialList trials={trials} isLoading={isLoading} error={error?.message}
-                       onFocus={handleFocusTrial} />
+                       onOpen={setSelectedTrial} />
             {!isLoading && trials.length > 0 && (
               <ReactPaginate
                 forcePage={pagination.page}
@@ -221,11 +237,20 @@ export default function TrialsSearchPage() {
             {/* Re-enable pointer events for the list */}
             <main className="flex-grow overflow-y-auto bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-[var(--shadow-lift)] pointer-events-auto">
               <TrialList trials={trials} isLoading={isLoading} error={error?.message}
-                         onFocus={handleFocusTrial} />
+                         onOpen={setSelectedTrial} />
             </main>
           </div>
         </div>
       )}
+
+      <TrialDetailModal
+        trial={selectedTrial}
+        onClose={() => setSelectedTrial(null)}
+        onViewOnMap={(trial) => {
+          setSelectedTrial(null);
+          handleFocusTrial(trial);
+        }}
+      />
     </div>
   );
 }

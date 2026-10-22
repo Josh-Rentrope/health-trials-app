@@ -23,6 +23,7 @@ import { AGE_BANDS, bandByKey, relevanceAnswers } from '@/lib/relevance';
 import { useNextQuestion } from '@/lib/use-eligibility';
 import { useTrialStore } from '@/stores/trialStore';
 import { TrialCard } from '@/components/trial/TrialCard';
+import { TrialDetailModal } from '@/components/trial/TrialDetailModal';
 
 type Step = 'about' | 'questions' | 'results';
 
@@ -80,6 +81,7 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
   const router = useRouter();
   const setFilters = useTrialStore((s) => s.setFilters);
   const setPagination = useTrialStore((s) => s.setPagination);
+  const setFocusTrial = useTrialStore((s) => s.setFocusTrial);
   const storeFilters = useTrialStore((s) => s.filters);
 
   const [step, setStep] = useState<Step>('about');
@@ -97,6 +99,7 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
   const [asked, setAsked] = useState<string[]>(() =>
     Object.keys(storeFilters.facts ?? {}),
   );
+  const [selectedTrial, setSelectedTrial] = useState<Trial | null>(null);
   // Changing a structured answer invalidates the fact questions that were chosen
   // for the old pool. This key is how that reset is detected without asking the
   // reader to start over.
@@ -613,7 +616,7 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
             >
               {shortlist.map((trial) => (
                 <li key={trial.id}>
-                  <TrialCard trial={trial} />
+                  <TrialCard trial={trial} onOpen={setSelectedTrial} />
                 </li>
               ))}
             </ul>
@@ -661,6 +664,16 @@ export function RelevanceFlow({ variant, onClose, showCondition }: RelevanceFlow
           </button>
         </div>
       )}
+
+      <TrialDetailModal
+        trial={selectedTrial}
+        onClose={() => setSelectedTrial(null)}
+        onViewOnMap={(trial) => {
+          setSelectedTrial(null);
+          setFocusTrial(trial);
+          apply(true);
+        }}
+      />
     </div>
   );
 }
