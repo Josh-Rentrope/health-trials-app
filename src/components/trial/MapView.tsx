@@ -76,6 +76,15 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   // a pan. Mapbox fires `click` after a drag in some cases, and without this a
   // pan that ends over empty map would dismiss the popup the user was reading.
   const downPoint = useRef<{ x: number; y: number } | null>(null);
+  // A marker's click can also surface as a map click in some browsers. Without
+  // this, the map's dismiss handler closes the popup the marker just opened.
+  const suppressMapClick = useRef(false);
+  const markMarkerClick = () => {
+    suppressMapClick.current = true;
+    window.setTimeout(() => {
+      suppressMapClick.current = false;
+    }, 60);
+  };
   const { mapViewState, setMapViewState, filters, setFilters, viewMode,
           focusTrial, setFocusTrial } = useTrialStore();
   const [debouncedFilters] = useDebounce(filters, 500);
@@ -319,7 +328,18 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
 
   }, [isCorrelationMode, correlationData, countyBoundaries]);
 
+  // Whether clicking this cluster will actually reveal more structure. Used by
+  // both the hover wording and the click, so the two cannot disagree.
+  const clusterCanExpand = (id: number) => {
+    const raw = supercluster?.getClusterExpansionZoom(id) ?? MAX_CLUSTER_ZOOM;
+    const zoomNow = mapViewState.zoom ?? 0;
+    const target = Math.min(raw, MAX_CLUSTER_ZOOM);
+    return !(raw >= MAX_CLUSTER_ZOOM || target <= zoomNow || zoomNow >= MAX_CLUSTER_ZOOM - 1);
+  };
+
   const handleMapClick = (e: mapboxgl.MapLayerMouseEvent) => {
+    // The click that opened a marker popup must not immediately dismiss it.
+    if (suppressMapClick.current) return;
     const feature = e.features?.[0];
     if (isCorrelationMode && feature && feature.layer?.id === 'county-choropleth') {
       const fips = (feature.properties as { GEOID?: string } | null)?.GEOID;
@@ -520,17 +540,19 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                       longitude: cluster.longitude,
                       latitude: cluster.latitude,
                       title: `${cluster.point_count.toLocaleString()} trials`,
-                      meta: 'Click to zoom in',
+                      meta: 'Shown in the sidebar\nClick to zoom',
                     })}
                     onMouseLeave={() => setHovered(null)}
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markMarkerClick();
                       setMapViewState({
                         ...mapViewState,
                         latitude: cluster.latitude,
                         longitude: cluster.longitude,
                         zoom: (mapViewState.zoom ?? 0) + 2,
-                      })
-                    }
+                      });
+                    }}
                   >
                     {cluster.point_count.toLocaleString()}
                   </div>
@@ -555,18 +577,20 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                     onMouseEnter={() => setHovered({
                       longitude: site.longitude, latitude: site.latitude,
                       title: `${site.point_count.toLocaleString()} trials`,
-                      meta: 'Click to list them',
+                      meta: 'Shown in the sidebar\nClick to list trials',
                     })}
                     onMouseLeave={() => setHovered(null)}
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markMarkerClick();
                       setActivePopup({
                         type: 'multi',
                         data: site.trials,
                         total: site.point_count,
                         longitude: site.longitude,
                         latitude: site.latitude,
-                      })
-                    }
+                      });
+                    }}
                   >
                     {site.point_count}
                   </div>
@@ -592,14 +616,16 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                     meta: [trial.status, loc.city].filter(Boolean).join(' · '),
                   })}
                   onMouseLeave={() => setHovered(null)}
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markMarkerClick();
                     setActivePopup({
                       type: 'trial',
                       data: trial,
                       longitude: loc.longitude,
                       latitude: loc.latitude,
-                    })
-                  }
+                    });
+                  }}
                 >
                   📍
                 </div>
@@ -628,14 +654,17 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                     onMouseEnter={() => setHovered({
                       longitude, latitude,
                       title: `${pointCount.toLocaleString()} trials`,
-                      meta: 'Click to open',
+                      meta: clusterCanExpand(cluster.id as number)
+                        ? 'Shown in the sidebar\nClick to zoom'
+                        : 'Shown in the sidebar\nClick to list trials',
                     })}
                     onMouseLeave={() => setHovered(null)}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markMarkerClick();
+                      const canExpand = clusterCanExpand(cluster.id as number);
                       const raw = supercluster?.getClusterExpansionZoom(cluster.id as number)
                         ?? MAX_CLUSTER_ZOOM;
-                      const zoomNow = mapViewState.zoom ?? 0;
-                      const targetZoom = Math.min(raw, MAX_CLUSTER_ZOOM);
 
                       // A cluster can stop separating before the map's ceiling:
                       // its points may share a coordinate, or its expansion zoom
@@ -643,12 +672,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                       // zooming again would redraw the same purple dot, so it
                       // opens the list instead. A grouping is still a way to
                       // reach a trial the user actually wants.
-                      const cannotExpand =
-                        raw >= MAX_CLUSTER_ZOOM ||
-                        targetZoom <= zoomNow ||
-                        zoomNow >= MAX_CLUSTER_ZOOM - 1;
-
-                      if (cannotExpand) {
+                      if (!canExpand) {
                         const leaves = supercluster?.getLeaves(cluster.id as number, 20) ?? [];
                         // Leaves are location points, so a trial with more than
                         // one point here would otherwise appear twice.
@@ -674,7 +698,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                         ...mapViewState,
                         latitude,
                         longitude,
-                        zoom: targetZoom,
+                        zoom: Math.min(raw, MAX_CLUSTER_ZOOM),
                       });
                     }}
                   >
@@ -725,14 +749,16 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                     })
                   }
                   onMouseLeave={() => setHovered(null)}
-                  onClick={() =>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markMarkerClick();
                     setActivePopup({
                       type: 'trial',
                       data: trial,
                       longitude,
                       latitude,
-                    })
-                  }
+                    });
+                  }}
                 >
                   📍
                 </div>
@@ -757,7 +783,9 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
               {hovered.title}
             </p>
             {hovered.meta && (
-              <p className="mt-0.5 text-[11px] text-muted">{hovered.meta}</p>
+              <p className="mt-0.5 whitespace-pre-line text-[11px] text-muted">
+                {hovered.meta}
+              </p>
             )}
           </div>
         </Popup>

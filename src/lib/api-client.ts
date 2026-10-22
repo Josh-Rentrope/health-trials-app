@@ -455,13 +455,26 @@ export interface RelevancePayload {
   condition?: string | null;
 }
 
+/** The page state the assistant is talking about, not a second set of answers. */
+export interface SearchContext {
+  condition?: string | null;
+  status?: string[];
+  phase?: string[];
+  user_location?: { latitude: number; longitude: number } | null;
+}
+
 export function postMessage(
   convId: string,
   content: string,
   relevance?: RelevancePayload | null,
+  search?: SearchContext | null,
 ): Promise<ChatMessage> {
   return getJson<ChatMessage>(`/api/chat/conversations/${convId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ content, ...(relevance ? { relevance } : {}) }),
+    body: JSON.stringify({
+      content,
+      ...(relevance ? { relevance } : {}),
+      ...(search ? { search } : {}),
+    }),
   });
 }

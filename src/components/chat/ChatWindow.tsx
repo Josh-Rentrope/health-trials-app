@@ -15,7 +15,17 @@ interface ChatWindowProps {
 export function ChatWindow({ conversationId }: ChatWindowProps) {
   const queryClient = useQueryClient();
   const filters = useTrialStore((s) => s.filters);
+  const userLocation = useTrialStore((s) => s.userLocation);
   const relevance = relevancePayload(filters);
+  // The page's current search travels with every message. Without it the model
+  // can only answer the question in isolation -- and asks "what condition?"
+  // when the reader is already looking at one.
+  const search = {
+    condition: filters.condition || null,
+    status: filters.status,
+    phase: filters.phase,
+    user_location: userLocation,
+  };
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +42,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   const postMessageMutation = useMutation({
     mutationFn: (content: string) => {
       if (!content.trim()) throw new Error('Message cannot be empty');
-      return postMessage(conversationId, content, relevance);
+      return postMessage(conversationId, content, relevance, search);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
