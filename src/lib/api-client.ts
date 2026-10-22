@@ -136,6 +136,36 @@ export interface Trial {
   }[];
 }
 
+/** The public /trials/{nct} record, used by chat badges. */
+export interface TrialDetail {
+  nct_number: string;
+  study_title: string;
+  study_url?: string | null;
+  acronym?: string | null;
+  status?: string | null;
+  conditions?: string | null;
+  phase?: string | null;
+  sponsor?: string | null;
+  enrollment_count?: number | null;
+  min_age_years?: number | null;
+  max_age_years?: number | null;
+  sex?: string | null;
+  healthy_volunteers?: boolean | null;
+  locations: {
+    location_text: string;
+    city?: string | null;
+    admin1?: string | null;
+    country_code?: string | null;
+    latitude: number;
+    longitude: number;
+  }[];
+  eligibility_facts: {
+    fact_key: string;
+    fact_value: string;
+    polarity: string;
+  }[];
+}
+
 /**
  * One geocoded location hosting several studies.
  *
@@ -265,6 +295,40 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
       countryCode: l.country_code ?? null,
     })),
   };
+}
+
+/** Normalise the detail endpoint into the same shape the cards/map use. */
+export function trialFromDetail(detail: TrialDetail): Trial {
+  return {
+    is_cluster: false,
+    id: detail.nct_number,
+    title: detail.study_title,
+    acronym: detail.acronym ?? null,
+    status: detail.status ? formatStatus(detail.status) : 'Unknown',
+    sponsor: detail.sponsor ?? 'Sponsor not listed',
+    phases: detail.phase
+      ? detail.phase
+          .split('|')
+          .map((p) => `Phase ${p.replace('PHASE', '').replace('EARLY ', '')}`)
+      : [],
+    conditions: detail.conditions ?? null,
+    enrollmentCount: detail.enrollment_count ?? null,
+    minAgeYears: detail.min_age_years ?? null,
+    maxAgeYears: detail.max_age_years ?? null,
+    sex: detail.sex ?? null,
+    healthyVolunteers: detail.healthy_volunteers ?? null,
+    locations: (detail.locations ?? []).map((l) => ({
+      latitude: l.latitude,
+      longitude: l.longitude,
+      precision: null,
+      city: l.city ?? null,
+      countryCode: l.country_code ?? null,
+    })),
+  };
+}
+
+export async function fetchTrialDetail(nct: string): Promise<TrialDetail> {
+  return getJson<TrialDetail>(`/trials/${encodeURIComponent(nct)}`);
 }
 
 // ── studies ─────────────────────────────────────────────────────────────────

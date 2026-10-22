@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send } from 'lucide-react';
 import { AI_SENDER_ID, getMessages, postMessage } from '@/lib/api-client';
+import { ChatMessageBody } from '@/components/chat/ChatMessageBody';
 import { relevancePayload } from '@/lib/relevance';
 import { useTrialStore } from '@/stores/trialStore';
 import { RelevancePrompt } from '@/components/relevance/RelevancePrompt';
@@ -60,28 +61,6 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
     if (newMessage.trim()) postMessageMutation.mutate(newMessage);
   };
 
-  // The API cites trials by NCT number. Link them out to ClinicalTrials.gov
-  // rather than to /trials/<nct>, which was a route rendering mock data and
-  // 404ing on Next 15 because it read `params` synchronously.
-  const renderMessageContent = (content: string) => {
-    const nctRegex = /(NCT\d{8,})/g;
-    return content.split(nctRegex).map((part, index) =>
-      nctRegex.test(part) ? (
-        <a
-          key={index}
-          href={`https://clinicaltrials.gov/study/${part}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-bold underline text-white/90 hover:text-white"
-        >
-          {part}
-        </a>
-      ) : (
-        <React.Fragment key={index}>{part}</React.Fragment>
-      ),
-    );
-  };
-
   return (
     <div className="flex flex-col h-full bg-surface">
       <div className="flex-grow p-6 overflow-y-auto">
@@ -97,11 +76,11 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
             return (
               <div key={msg.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
                 <div
-                  className={`max-w-md p-3 rounded-lg whitespace-pre-wrap ${
+                  className={`max-w-md break-words rounded-lg p-3 ${
                     isAssistant ? 'bg-canvas text-ink' : 'bg-accent text-white'
                   }`}
                 >
-                  {renderMessageContent(msg.content)}
+                  <ChatMessageBody content={msg.content} />
                 </div>
               </div>
             );
