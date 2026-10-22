@@ -380,7 +380,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                       {t.status}
                       {t.phases.length > 0 ? ` · ${t.phases.join(', ')}` : ''}
                     </p>
-                    <p className="text-[11px] text-blue-600 font-mono">{t.id}</p>
+                    <p className="text-[11px] text-accent font-mono">{t.id}</p>
                   </button>
                 </li>
               ))}
@@ -426,7 +426,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
               href={`https://clinicaltrials.gov/study/${trial.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-block text-xs font-medium text-blue-600 hover:text-blue-800"
+              className="mt-2 inline-block text-xs font-medium text-accent hover:text-accent-hover"
             >
               {trial.id} ↗
             </a>

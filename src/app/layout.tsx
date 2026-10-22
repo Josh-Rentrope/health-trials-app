@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { NavLink } from '@/components/NavLink';
 import { Providers } from './providers';
 import "./globals.css";
 
-// Clerk used to wrap this tree. It is gone: nothing on the search or map path
-// needed a session, chat identity is a server-issued cookie now, and the
-// `<SignedIn>` header block below was commented out anyway -- so the only thing
-// Clerk still did was require two secrets to be present or the app would fail to
-// render at all. The `AuthStatus` import was likewise dead (imported, never
-// rendered) and pulled in a second, unused auth library.
+// Generic product branding on purpose. "VoltAmp" was a placeholder carried over
+// from the original clone and means nothing to a patient; until there is a real
+// brand this is simply a clinical trial search tool, and saying so is clearer
+// than an invented name.
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,8 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VoltAmp — Clinical Trial Search",
-  description: "Find recruiting clinical trials by condition, phase, and location.",
+  title: "Clinical Trials — Find a study",
+  description:
+    "Search 600,000+ registered clinical trials by condition, phase, and location, and check which ones you may qualify for.",
 };
 
 export default function RootLayout({
@@ -34,16 +34,18 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <header className="p-4 border-b">
-            <nav className="flex justify-between items-center">
-              <Link href="/" className="font-semibold">VoltAmp</Link>
-              <div className="flex gap-6 text-sm">
-                <Link href="/trials" className="text-gray-600 hover:text-blue-600">
-                  Search trials
-                </Link>
-                <Link href="/chat" className="text-gray-600 hover:text-blue-600">
-                  Ask the assistant
-                </Link>
+          <header className="border-b border-line bg-surface">
+            <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+              <Link href="/" className="flex items-center gap-2">
+                <span className="inline-block h-6 w-6 rounded-md bg-accent" aria-hidden />
+                <span className="text-[15px] font-semibold tracking-tight text-ink">
+                  Clinical Trials
+                </span>
+              </Link>
+              <div className="flex items-center gap-1">
+                <NavLink href="/trials">Search trials</NavLink>
+                <NavLink href="/match">Check what fits</NavLink>
+                <NavLink href="/chat">Ask the assistant</NavLink>
               </div>
             </nav>
           </header>

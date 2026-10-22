@@ -21,6 +21,16 @@ export interface FilterState {
   bounds?: BoundingBox;
   correlationCondition?: string;
   demographicVariable?: string; // e.g., 'v021_raw_value'
+
+  /**
+   * Answers from the questionnaire. Kept on the filter object so the existing
+   * query key picks them up and the list/map re-query automatically -- there is
+   * no second data path.
+   */
+  age?: number | null;
+  sex?: 'female' | 'male' | null;
+  healthyVolunteer?: boolean | null;
+  facts?: Record<string, boolean>;
 }
 
 interface TrialState {

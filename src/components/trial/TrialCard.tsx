@@ -11,6 +11,7 @@ import { MapPin } from 'lucide-react';
 
 import { Trial } from '@/lib/api-client';
 import { useTrialStore } from '@/stores/trialStore';
+import { FitBadge } from '@/components/trial/FitBadge';
 
 type TrialCardProps = {
   trial: Trial;
@@ -110,11 +111,11 @@ export const TrialCard: React.FC<TrialCardProps> = ({ trial, onFocus }) => {
 
   return (
     <div
-      className="group flex h-full flex-col rounded-xl border border-line bg-surface p-5
+      className={`group flex h-full flex-col rounded-xl border border-line bg-surface p-5
                  transition duration-150 ease-out hover:-translate-y-px hover:shadow-[var(--shadow-lift)]
-                 cursor-pointer"
-      onDoubleClick={() => onFocus?.(trial)}
-      title="Double-click to show this trial on the map"
+                 ${onFocus ? 'cursor-pointer' : ''}`}
+      onDoubleClick={onFocus ? () => onFocus(trial) : undefined}
+      title={onFocus ? 'Double-click to show this trial on the map' : undefined}
     >
       {/* Status and shape, at a glance */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
@@ -151,11 +152,16 @@ export const TrialCard: React.FC<TrialCardProps> = ({ trial, onFocus }) => {
         </p>
       )}
 
-      {/* The decision row: who it is for, and the one action. */}
-      <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
-        <span className="truncate text-[13px] text-muted">
-          {eligibility || 'Eligibility not listed'}
-        </span>
+      {/* The decision row: who it is for, how it reads against the answers, and
+          the one action. The badge only appears once the reader has answered
+          something, because a "fit" with nothing to fit against is noise. */}
+      <div className="mt-auto flex items-end justify-between gap-3 border-t border-line pt-3">
+        <div className="min-w-0">
+          {trial.fit && <FitBadge fit={trial.fit} className="mb-1.5" />}
+          <span className="block truncate text-[13px] text-muted">
+            {eligibility || 'Eligibility not listed'}
+          </span>
+        </div>
         <Link
           href={`https://clinicaltrials.gov/study/${id}`}
           target="_blank"

@@ -80,7 +80,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
               <div key={msg.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
                 <div
                   className={`max-w-md p-3 rounded-lg whitespace-pre-wrap ${
-                    isAssistant ? 'bg-gray-200 text-gray-800' : 'bg-blue-500 text-white'
+                    isAssistant ? 'bg-canvas text-ink' : 'bg-accent text-white'
                   }`}
                 >
                   {renderMessageContent(msg.content)}
@@ -109,12 +109,12 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Ask about trials, e.g. 'recruiting melanoma trials'"
-            className="flex-grow p-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-grow p-2 border border-line rounded-full bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-accent"
             disabled={postMessageMutation.isPending}
           />
           <button
             type="submit"
-            className="p-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:bg-blue-300"
+            className="p-3 bg-accent text-white rounded-full hover:bg-accent-hover disabled:opacity-40"
             disabled={postMessageMutation.isPending || !newMessage.trim()}
           >
             <Send size={20} />

@@ -8,12 +8,12 @@ interface FaqItemProps {
 
 export const FaqItem = ({ question, children }: FaqItemProps) => {
   return (
-    <details className="group border-b">
-      <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-lg font-medium text-foreground">
+    <details className="group border-b border-line">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-[15px] font-medium text-ink">
         {question}
-        <ChevronDown className="h-5 w-5 transition-transform duration-300 group-open:rotate-180" />
+        <ChevronDown className="h-5 w-5 shrink-0 text-muted transition-transform duration-300 group-open:rotate-180" />
       </summary>
-      <div className="pb-4 text-muted-foreground">
+      <div className="pb-4 text-[14px] leading-6 text-muted">
         {children}
       </div>
     </details>

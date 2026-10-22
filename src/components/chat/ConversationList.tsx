@@ -67,8 +67,8 @@ export function ConversationList() {
             onClick={() => setActiveConversationId(conv.id)}
             className={`p-3 rounded-lg cursor-pointer flex justify-between items-center ${
               activeConversationId === conv.id
-                ? 'bg-blue-700 text-white'
-                : 'hover:bg-gray-200 text-gray-800'
+                ? 'bg-accent text-white'
+                : 'hover:bg-canvas text-ink'
             }`}
           >
             <div>

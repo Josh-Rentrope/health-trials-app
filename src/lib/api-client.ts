@@ -54,6 +54,19 @@ export interface StudyLocation {
   precision?: string | null;
 }
 
+/**
+ * How a study reads against the answers the reader gave.
+ *
+ * `check_with_site` is not a hedge: the registry genuinely does not state
+ * everything a protocol requires (organ function, measurable disease), and this
+ * product does not pretend otherwise.
+ */
+export interface StudyFit {
+  verdict: 'meets_listed' | 'check_with_site' | 'does_not_match';
+  reasons: string[];
+  unknown_count: number;
+}
+
 export interface ApiStudy {
   nct_number: string;
   study_title: string;
@@ -68,6 +81,8 @@ export interface ApiStudy {
   max_age_years?: number | null;
   sex?: string | null;
   healthy_volunteers?: boolean | null;
+  /** Present only once the reader has answered something. */
+  fit?: StudyFit | null;
   locations: StudyLocation[];
 }
 
@@ -107,6 +122,7 @@ export interface Trial {
   maxAgeYears?: number | null;
   sex?: string | null;
   healthyVolunteers?: boolean | null;
+  fit?: StudyFit | null;
   locations?: {
     latitude: number;
     longitude: number;
@@ -187,6 +203,12 @@ export interface StudyFilters {
   location?: string;
   page?: number;
   limit?: number;
+  /** Answers from the questionnaire. Only sent when the reader has given them. */
+  age?: number | null;
+  sex?: 'female' | 'male' | null;
+  healthyVolunteer?: boolean | null;
+  /** "prior_therapy:chemotherapy": true, meaning the reader HAS had it. */
+  facts?: Record<string, boolean>;
 }
 
 export interface GeoJSONFeatureCollection {
@@ -225,6 +247,7 @@ function normalizeApiStudy(study: ApiStudy): Trial | null {
     maxAgeYears: study.max_age_years ?? null,
     sex: study.sex ?? null,
     healthyVolunteers: study.healthy_volunteers ?? null,
+    fit: study.fit ?? null,
     locations: (study.locations ?? []).map((l) => ({
       latitude: l.latitude,
       longitude: l.longitude,
@@ -251,6 +274,16 @@ export async function fetchTrialsFromApi(
   const bounds = filters.bounds;
   if (bounds) {
     qs.append('bbox', `${bounds.sw.lng},${bounds.sw.lat},${bounds.ne.lng},${bounds.ne.lat}`);
+  }
+  if (typeof filters.age === 'number') qs.append('age', String(filters.age));
+  if (filters.sex) qs.append('sex', filters.sex);
+  // Both directions matter. Sending only `false` meant a healthy reader's answer
+  // filtered nothing, because the server never heard it.
+  if (typeof filters.healthyVolunteer === 'boolean') {
+    qs.append('healthy_volunteer', String(filters.healthyVolunteer));
+  }
+  for (const [key, has] of Object.entries(filters.facts ?? {})) {
+    qs.append('fact', `${key}:${has ? 'yes' : 'no'}`);
   }
   qs.append('page', String(filters.page ? Number(filters.page) + 1 : 1));
   qs.append('limit', String(filters.limit ?? 10));
@@ -309,6 +342,45 @@ export async function fetchCorrelationData(
 ): Promise<CountyCorrelation[]> {
   const qs = new URLSearchParams({ condition, demographic_variable: demographicVariable });
   return getJson<CountyCorrelation[]>(`/api/correlation?${qs}`);
+}
+
+// ── questionnaire ───────────────────────────────────────────────────────────
+
+export interface SegmentQuestion {
+  question: string;
+  key: string;
+  split: { requires: number; excludes: number; silent: number };
+  eliminates_if_yes: number;
+  eliminates_if_no: number;
+}
+
+export interface SegmentResponse {
+  total: number;
+  next_question: SegmentQuestion | null;
+  message?: string;
+}
+
+/**
+ * Ask which question to ask next.
+ *
+ * The endpoint is stateless and computes the answer from the candidate pool --
+ * this is arithmetic on the server, not a model call, so it costs nothing and
+ * gives the same answer twice.
+ */
+export async function fetchSegment(body: {
+  condition?: string;
+  status?: string;
+  answers: {
+    age?: number | null;
+    sex?: string | null;
+    healthy_volunteer?: boolean | null;
+    facts?: Record<string, boolean>;
+  };
+}): Promise<SegmentResponse> {
+  return getJson<SegmentResponse>('/api/qualify/segment', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 // ── sessions ────────────────────────────────────────────────────────────────

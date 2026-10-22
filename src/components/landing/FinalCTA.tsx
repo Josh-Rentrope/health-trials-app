@@ -1,24 +1,38 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export const FinalCTA = () => {
   return (
-    <div className="bg-white">
-      <div className="mx-auto max-w-4xl py-16 px-4 sm:px-6 sm:py-24 lg:px-8 text-center">
-        <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
-          Ready to take the next step?
-        </h2>
-        <p className="mt-4 text-lg leading-6 text-gray-600">
-          Your search for a clinical trial starts now. Find promising new treatments and contribute to the future of medicine.
-        </p>
-        <Link
-          href="/trials"
-          className="group mt-8 inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-transform transform-gpu hover:scale-105 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          Find a Trial Now
-          <ArrowRight className="ml-3 h-6 w-6 transition-transform group-hover:translate-x-1" />
-        </Link>
+    <section className="border-b border-line bg-canvas">
+      <div className="mx-auto max-w-7xl px-6 py-16 sm:py-20">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="max-w-xl">
+            <h2 className="text-[28px] font-semibold tracking-tight text-ink sm:text-[32px]">
+              Not sure where to start?
+            </h2>
+            <p className="mt-2 text-[15px] leading-6 text-muted">
+              Answer a few questions and we will show you the studies that survive
+              them — and be plain about what the registry does not tell us.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/match"
+              className="flex items-center gap-2 rounded-md bg-accent px-5 py-3 text-[15px] font-medium text-white transition-colors hover:bg-accent-hover"
+            >
+              <Sparkles size={17} aria-hidden />
+              See what fits me
+              <ArrowRight size={17} aria-hidden />
+            </Link>
+            <Link
+              href="/trials"
+              className="rounded-md border border-line px-5 py-3 text-[15px] font-medium text-ink transition-colors hover:border-accent/40"
+            >
+              Browse all trials
+            </Link>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 };

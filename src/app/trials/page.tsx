@@ -8,9 +8,10 @@ import ReactPaginate from 'react-paginate';
 import { FilterSidebar } from '@/components/trial/FilterSidebar';
 import { TrialList } from '@/components/trial/TrialList';
 import { ViewToggle } from '@/components/trial/ViewToggle';
+import { Questionnaire } from '@/components/trial/Questionnaire';
 import { useTrialStore } from '@/stores/trialStore';
 import { fetchTrialsFromApi, StudyFilters, Trial } from '@/lib/api-client';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // The inline chatbot that used to live here is gone. It was rendered nowhere
@@ -36,6 +37,7 @@ export default function TrialsSearchPage() {
   const setUserLocation = useTrialStore((s) => s.setUserLocation);
   const [debouncedFilters] = useDebounce(filters, 500);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
   // --- New state to control sidebar collapse ---
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -108,10 +110,46 @@ export default function TrialsSearchPage() {
 
   return (
     <div className="p-4">
-      <header className="flex justify-between items-center mb-6">
-        <h1 className="text-[28px] font-semibold tracking-tight text-ink">Find a Clinical Trial</h1>
-        <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+            Find a Clinical Trial
+          </h1>
+          <p className="mt-1 text-[13px] text-muted">
+            {isLoading
+              ? 'Searching…'
+              : `${totalCount.toLocaleString()} studies match`}
+            {(typeof filters.age === 'number' ||
+              !!filters.sex ||
+              filters.healthyVolunteer != null ||
+              Object.keys(filters.facts ?? {}).length > 0) && (
+              <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 text-accent">
+                personalised
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/*
+            The questionnaire sits beside the view toggle rather than above the
+            filter rail because it is the higher-value path: filters are for
+            people who already know what they are looking for, and this is for
+            people who do not. It stays visible in both views so switching to the
+            map does not hide it.
+          */}
+          <button
+            type="button"
+            onClick={() => setQuestionnaireOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] font-medium text-accent transition-colors hover:border-accent/60"
+          >
+            <Sparkles size={15} aria-hidden />
+            Help me find trials
+          </button>
+          <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+        </div>
       </header>
+
+      <Questionnaire open={questionnaireOpen} onClose={() => setQuestionnaireOpen(false)} />
 
       {showingStale && (
         <div className="mb-4 rounded-md border border-warn bg-warn-soft px-4 py-2 text-[13px] text-warn">
