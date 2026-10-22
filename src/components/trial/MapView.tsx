@@ -357,10 +357,10 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
         >
           <div className="p-1">
             <h4 className="font-semibold text-sm text-gray-900">
-              {total} trial{total === 1 ? '' : 's'} at this site
+              {total} trial{total === 1 ? '' : 's'} here
             </h4>
             <p className="text-[11px] text-gray-500 mb-1">
-              Showing {trials.length} most recent
+              Showing {trials.length}
               {total > trials.length ? ` of ${total}` : ''}
             </p>
             <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
@@ -630,17 +630,31 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                     onClick={() => {
                       const raw = supercluster?.getClusterExpansionZoom(cluster.id as number)
                         ?? MAX_CLUSTER_ZOOM;
+                      const zoomNow = mapViewState.zoom ?? 0;
+                      const targetZoom = Math.min(raw, MAX_CLUSTER_ZOOM);
 
-                      // A cluster of trials sharing one exact coordinate can
-                      // never separate: its expansion zoom is past the maximum.
-                      // Zooming to it would just re-render the same purple dot,
-                      // so it opens a list instead.
-                      if (raw > MAX_CLUSTER_ZOOM) {
-                        const leaves = supercluster?.getLeaves(cluster.id as number, 5) ?? [];
-                        const list = leaves
-                          .map((leaf) => trialById.get(
-                            (leaf.properties as { trialId?: string }).trialId ?? ''))
-                          .filter((t): t is Trial => Boolean(t));
+                      // A cluster can stop separating before the map's ceiling:
+                      // its points may share a coordinate, or its expansion zoom
+                      // may already be the current zoom. At or near the ceiling,
+                      // zooming again would redraw the same purple dot, so it
+                      // opens the list instead. A grouping is still a way to
+                      // reach a trial the user actually wants.
+                      const cannotExpand =
+                        raw >= MAX_CLUSTER_ZOOM ||
+                        targetZoom <= zoomNow ||
+                        zoomNow >= MAX_CLUSTER_ZOOM - 1;
+
+                      if (cannotExpand) {
+                        const leaves = supercluster?.getLeaves(cluster.id as number, 20) ?? [];
+                        // Leaves are location points, so a trial with more than
+                        // one point here would otherwise appear twice.
+                        const byId = new Map<string, Trial>();
+                        for (const leaf of leaves) {
+                          const t = trialById.get(
+                            (leaf.properties as { trialId?: string }).trialId ?? '');
+                          if (t) byId.set(t.id, t);
+                        }
+                        const list = [...byId.values()];
                         if (list.length > 0) {
                           setActivePopup({
                             type: 'multi',
@@ -656,7 +670,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                         ...mapViewState,
                         latitude,
                         longitude,
-                        zoom: Math.min(raw, MAX_CLUSTER_ZOOM),
+                        zoom: targetZoom,
                       });
                     }}
                   >

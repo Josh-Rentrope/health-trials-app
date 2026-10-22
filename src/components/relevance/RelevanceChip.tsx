@@ -51,37 +51,41 @@ export function RelevanceChip({ onEdit }: { onEdit?: () => void }) {
         </span>
       </button>
 
-      {/* Visible on hover and on keyboard focus, so it is not mouse-only. */}
-      <div className="invisible absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-line bg-surface p-3 opacity-0 shadow-lift transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
-          Your answers
-        </p>
-        <ul className="mt-2 space-y-1">
-          {answers.map((a) => (
-            <li
-              key={a.label}
-              className="flex items-baseline justify-between gap-3 text-[12px]"
+      {/* Visible on hover and on keyboard focus, so it is not mouse-only.
+          The padding is part of the popover: it bridges the gap to the pill, so
+          moving the pointer down towards Clear never leaves the hover area. */}
+      <div className="invisible absolute left-0 top-full z-30 w-72 pt-2 opacity-0 transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <div className="rounded-lg border border-line bg-surface p-3 shadow-lift">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
+            Your answers
+          </p>
+          <ul className="mt-2 space-y-1">
+            {answers.map((a) => (
+              <li
+                key={a.label}
+                className="flex items-baseline justify-between gap-3 text-[12px]"
+              >
+                <span className="text-muted">{a.label}</span>
+                <span className="text-right text-ink">{a.value}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex justify-between border-t border-line pt-2">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-[12px] font-medium text-accent hover:underline"
             >
-              <span className="text-muted">{a.label}</span>
-              <span className="text-right text-ink">{a.value}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-3 flex justify-between border-t border-line pt-2">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="text-[12px] font-medium text-accent hover:underline"
-          >
-            Edit answers
-          </button>
-          <button
-            type="button"
-            onClick={clear}
-            className="text-[12px] text-muted hover:text-ink"
-          >
-            Clear
-          </button>
+              Edit answers
+            </button>
+            <button
+              type="button"
+              onClick={clear}
+              className="text-[12px] text-muted hover:text-ink"
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
     </div>

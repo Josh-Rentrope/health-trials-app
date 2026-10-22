@@ -12,7 +12,7 @@ import { Questionnaire } from '@/components/trial/Questionnaire';
 import { RelevanceChip } from '@/components/relevance/RelevanceChip';
 import { useTrialStore } from '@/stores/trialStore';
 import { fetchTrialsFromApi, StudyFilters, Trial } from '@/lib/api-client';
-import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 // The inline chatbot that used to live here is gone. It was rendered nowhere
@@ -133,24 +133,7 @@ export default function TrialsSearchPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/*
-            The questionnaire sits beside the view toggle rather than above the
-            filter rail because it is the higher-value path: filters are for
-            people who already know what they are looking for, and this is for
-            people who do not. It stays visible in both views so switching to the
-            map does not hide it.
-          */}
-          <button
-            type="button"
-            onClick={() => setQuestionnaireOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] font-medium text-accent transition-colors hover:border-accent/60"
-          >
-            <Sparkles size={15} aria-hidden />
-            Find relevant studies
-          </button>
-          <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
-        </div>
+        <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
       </header>
 
       <Questionnaire open={questionnaireOpen} onClose={() => setQuestionnaireOpen(false)} />
@@ -172,7 +155,11 @@ export default function TrialsSearchPage() {
               <RelevanceChip onEdit={() => setQuestionnaireOpen(true)} />
             </div>
             {/* Pass props for map view functionality, but they won't be used here */}
-            <FilterSidebar isLoading={isLoading} isCollapsed={false} />
+            <FilterSidebar
+              isLoading={isLoading}
+              isCollapsed={false}
+              onOpenRelevance={() => setQuestionnaireOpen(true)}
+            />
           </aside>
           <main className="lg:col-span-3">
             {!isLoading && trials.length > 0 && (
@@ -228,6 +215,7 @@ export default function TrialsSearchPage() {
                 isCollapsed={isSidebarCollapsed}
                 setCollapsed={setIsSidebarCollapsed}
                 isLoading={isLoading}
+                onOpenRelevance={() => setQuestionnaireOpen(true)}
               />
             </div>
             {/* Re-enable pointer events for the list */}

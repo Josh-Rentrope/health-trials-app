@@ -1,9 +1,9 @@
 // components/trials/FilterSidebar.tsx
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { SlidersHorizontal, Search, BarChart, Mic, Loader2 } from 'lucide-react';
+import { SlidersHorizontal, Search, BarChart, Mic, Loader2, Sparkles } from 'lucide-react';
 // --- FIX: Import the new setViewMode function and ViewMode type ---
 import { useTrialStore, ViewMode } from '@/stores/trialStore';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
@@ -54,11 +54,29 @@ type FilterSidebarProps = {
   isLoading?: boolean;
   isCollapsed?: boolean;
   setCollapsed?: (collapsed: boolean) => void;
+  /** Opens the relevance questionnaire. Rendered only when a search filter is active. */
+  onOpenRelevance?: () => void;
 };
 
-export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
+export const FilterSidebar: React.FC<FilterSidebarProps> = ({
+  isLoading,
+  onOpenRelevance,
+}) => {
   // --- FIX: Get viewMode and setViewMode from the store ---
   const { filters, setFilters, resetFilters, viewMode, setViewMode , isCollapsed, setCollapsed } = useTrialStore();
+
+  // `browserSupportsSpeechRecognition` is only knowable in the browser. Rendering
+  // the mic button from it directly made the server HTML and the hydrated client
+  // disagree on /trials; this defers the browser-only branch until after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // "Find relevant studies" needs a search context. Without one the pool is the
+  // whole registry and the decision tree has nothing to segment.
+  const hasSearchFilter =
+    filters.condition.trim() !== '' ||
+    filters.status.length > 0 ||
+    filters.phase.length > 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -110,7 +128,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
             <label htmlFor="condition" className="font-semibold text-ink text-sm">Condition or Disease</label>
             <div className="flex items-center gap-2">
               <input type="text" name="condition" id="condition" value={filters.condition} onChange={handleInputChange} className="w-full border-gray-300 text-gray-500 rounded-md shadow-sm"/>
-              {browserSupportsSpeechRecognition && (
+              {mounted && browserSupportsSpeechRecognition && (
                 <button onClick={handleListen} className="p-2 border rounded-md hover:bg-gray-100">
                   {listening ? <Loader2 className="animate-spin" /> : <Mic />}
                 </button>
@@ -137,12 +155,23 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({ isLoading }) => {
             onChange={(value: string) => handleCheckboxChange('phase', value)}
           />
 
-          <Button onClick={handleApply} disabled={isLoading} className="w-full">
-            {isLoading ? 'Searching...' : 'Apply Filters'}
-          </Button>
-        
+          <div className="space-y-2">
+            <Button onClick={handleApply} disabled={isLoading} className="w-full">
+              {isLoading ? 'Searching...' : 'Apply Filters'}
+            </Button>
+            {hasSearchFilter && onOpenRelevance && (
+              <button
+                type="button"
+                onClick={onOpenRelevance}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] font-medium text-accent transition-colors hover:border-accent/60"
+              >
+                <Sparkles size={15} aria-hidden />
+                Find relevant studies
+              </button>
+            )}
+          </div>
     </>
-  ); 
+  );
   
   const handleApply = () => {
     
