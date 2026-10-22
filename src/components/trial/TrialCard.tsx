@@ -73,18 +73,25 @@ export const TrialCard: React.FC<TrialCardProps> = ({ trial, onFocus }) => {
   const tone = statusTone(status);
   const locs = trial.locations ?? [];
 
-  // Nearest site. Without a location fix we show the first city, which is still
-  // more useful than nothing; with one, the closest site wins.
+  // Nearest site. Without a location fix we show the first place, which is still
+  // more useful than nothing; with one, the closest wins.
+  //
+  // `city` is only trustworthy when the geocoder actually resolved a city or a
+  // postal code. At admin1/country precision the parser may have parked a
+  // facility name there ("Tenax Investigational Site"), and printing that where a
+  // city belongs is worse than printing the country.
   let nearest: { miles: number | null; place: string } | null = null;
   for (const loc of locs) {
-    if (!loc.city) continue;
+    const trustworthy = loc.precision === 'postal' || loc.precision === 'city';
+    const place = (trustworthy ? loc.city : null) ?? loc.countryCode ?? null;
+    if (!place) continue;
     const miles = userLocation ? haversineMiles(userLocation, loc) : null;
     if (!nearest) {
-      nearest = { miles, place: loc.city };
+      nearest = { miles, place };
       continue;
     }
     if (miles != null && (nearest.miles == null || miles < nearest.miles)) {
-      nearest = { miles, place: loc.city };
+      nearest = { miles, place };
     }
   }
 

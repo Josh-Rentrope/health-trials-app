@@ -26,9 +26,21 @@ import { useQuery } from '@tanstack/react-query';
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const CLUSTER_THRESHOLD = 12;
-// Must match `useSupercluster`'s maxZoom. A cluster whose expansion zoom exceeds
-// this can never split, because its members share identical coordinates.
 const MAX_CLUSTER_ZOOM = 20;
+
+// Cluster size and colour by count, on a LOG scale. Linear sizing made Houston
+// (15,170 studies) produce a marker that swallowed the state, and a single flat
+// blue gave no sense of density at a glance. The ramp runs light -> accent so the
+// eye reads concentration before it reads any number.
+const CLUSTER_RAMP = ['#C3BDF6', '#9A8FEC', '#7566E1', '#5B4BD6'];
+
+function clusterVisual(count: number, max: number) {
+  const t = max > 1 ? Math.min(1, Math.log10(count + 1) / Math.log10(max + 1)) : 0.5;
+  return {
+    size: Math.round(26 + t * 36),
+    color: CLUSTER_RAMP[Math.min(CLUSTER_RAMP.length - 1, Math.floor(t * CLUSTER_RAMP.length))],
+  };
+}
 
 // `type: 'Feature'` has to be a literal, not a widened `string`, or the object is
 // not assignable to the GeoJSON feature types supercluster expects.
@@ -77,6 +89,15 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     isCorrelationMode && !!filters.correlationCondition && !!filters.demographicVariable;
 
   const currentZoom = Math.round(mapViewState.zoom ?? 0);
+
+  // A small card follows the pointer over a marker. Kept separate from
+  // `activePopup` so hovering never steals the popup the user opened.
+  const [hovered, setHovered] = useState<{
+    longitude: number;
+    latitude: number;
+    title: string;
+    meta: string;
+  } | null>(null);
 
   const { data: mapData } = useQuery<MapData>({
     queryKey: ['mapData', debouncedFilters, currentZoom],
@@ -144,6 +165,22 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
           geometry: { type: 'Point' as const, coordinates: [loc.longitude, loc.latitude] },
         })),
       );
+  }, [shownMap]);
+
+  // How much the current viewport holds, and the busiest single cluster -- the
+  // denominator for the log size ramp.
+  const { viewportTotal, maxCluster } = useMemo(() => {
+    let total = 0;
+    let max = 1;
+    for (const item of shownMap) {
+      if (item.is_cluster || item.is_site) {
+        total += item.point_count;
+        if (item.point_count > max) max = item.point_count;
+      } else {
+        total += 1;
+      }
+    }
+    return { viewportTotal: total, maxCluster: max };
   }, [shownMap]);
 
   const { clusters, supercluster } = useSupercluster({
@@ -435,6 +472,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   };
 
   return (
+    <div className="relative h-full w-full">
     <MapGL
       ref={mapRef}
       {...mapViewState}
@@ -458,13 +496,13 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
       interactiveLayerIds={isCorrelationMode ? ['county-choropleth'] : []}
       mapboxAccessToken={MAPBOX_TOKEN}
       style={{ width: '100%', height: '100%' }}
-      mapStyle="mapbox://styles/mapbox/streets-v11"
+      mapStyle="mapbox://styles/mapbox/light-v11"
     >
       {currentZoom < CLUSTER_THRESHOLD
         ? shownMap.map((item) => {
             if (item.is_cluster) {
               const cluster = item as ApiCluster;
-              const circleSize = Math.min(80, 30 + (cluster.point_count / 100) * 20);
+              const v = clusterVisual(cluster.point_count, maxCluster);
               return (
                 <Marker
                   key={`server-cluster-${cluster.latitude}-${cluster.longitude}`}
@@ -472,8 +510,15 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                   longitude={cluster.longitude}
                 >
                   <div
-                    className="flex items-center justify-center bg-blue-600 text-white rounded-full cursor-pointer text-xs"
-                    style={{ width: `${circleSize}px`, height: `${circleSize}px` }}
+                    className="flex cursor-pointer items-center justify-center rounded-full text-[11px] font-medium text-white shadow-sm transition-transform duration-150 hover:scale-110"
+                    style={{ width: `${v.size}px`, height: `${v.size}px`, backgroundColor: v.color }}
+                    onMouseEnter={() => setHovered({
+                      longitude: cluster.longitude,
+                      latitude: cluster.latitude,
+                      title: `${cluster.point_count.toLocaleString()} trials`,
+                      meta: 'Click to zoom in',
+                    })}
+                    onMouseLeave={() => setHovered(null)}
                     onClick={() =>
                       setMapViewState({
                         ...mapViewState,
@@ -483,7 +528,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                       })
                     }
                   >
-                    {cluster.point_count}
+                    {cluster.point_count.toLocaleString()}
                   </div>
                 </Marker>
               );
@@ -500,9 +545,15 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                   longitude={site.longitude}
                 >
                   <div
-                    className="flex items-center justify-center bg-purple-600 text-white rounded-full cursor-pointer text-[11px] font-medium shadow-md"
-                    style={{ width: `${size}px`, height: `${size}px` }}
+                    className="flex cursor-pointer items-center justify-center rounded-full text-[11px] font-medium text-white shadow-md transition-transform duration-150 hover:scale-110"
+                    style={{ width: `${size}px`, height: `${size}px`, backgroundColor: CLUSTER_RAMP[3] }}
                     title={`${site.point_count} trials at this location`}
+                    onMouseEnter={() => setHovered({
+                      longitude: site.longitude, latitude: site.latitude,
+                      title: `${site.point_count.toLocaleString()} trials`,
+                      meta: 'Click to list them',
+                    })}
+                    onMouseLeave={() => setHovered(null)}
                     onClick={() =>
                       setActivePopup({
                         type: 'multi',
@@ -530,6 +581,13 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                   className={loc.precision === 'country' || loc.precision === 'admin1'
                     ? 'opacity-40'
                     : ''}
+                  onMouseEnter={() => setHovered({
+                    longitude: loc.longitude,
+                    latitude: loc.latitude,
+                    title: trial.title.length > 58 ? trial.title.slice(0, 58) + '…' : trial.title,
+                    meta: [trial.status, loc.city].filter(Boolean).join(' · '),
+                  })}
+                  onMouseLeave={() => setHovered(null)}
                   onClick={() =>
                     setActivePopup({
                       type: 'trial',
@@ -557,11 +615,18 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                   longitude={longitude}
                 >
                   <div
-                    className="flex items-center justify-center bg-purple-600 text-white rounded-full cursor-pointer text-xs"
+                    className="flex cursor-pointer items-center justify-center rounded-full text-[11px] font-medium text-white shadow-sm transition-transform duration-150 hover:scale-110"
                     style={{
-                      width: `${30 + (points.length ? (pointCount / points.length) * 40 : 0)}px`,
-                      height: `${30 + (points.length ? (pointCount / points.length) * 40 : 0)}px`,
+                      width: `${clusterVisual(pointCount, maxCluster).size}px`,
+                      height: `${clusterVisual(pointCount, maxCluster).size}px`,
+                      backgroundColor: clusterVisual(pointCount, maxCluster).color,
                     }}
+                    onMouseEnter={() => setHovered({
+                      longitude, latitude,
+                      title: `${pointCount.toLocaleString()} trials`,
+                      meta: 'Click to open',
+                    })}
+                    onMouseLeave={() => setHovered(null)}
                     onClick={() => {
                       const raw = supercluster?.getClusterExpansionZoom(cluster.id as number)
                         ?? MAX_CLUSTER_ZOOM;
@@ -611,7 +676,38 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
             );
           })}
       {renderPopup()}
+
+      {/* Hover card. Pointer-events off so it never blocks the marker beneath. */}
+      {hovered && (
+        <Popup
+          longitude={hovered.longitude}
+          latitude={hovered.latitude}
+          closeButton={false}
+          closeOnClick={false}
+          anchor="top"
+          offset={14}
+          className="pointer-events-none"
+        >
+          <div className="max-w-[240px] rounded-lg border border-line bg-surface px-3 py-2 shadow-[var(--shadow-lift)]">
+            <p className="line-clamp-2 text-[13px] font-medium leading-snug text-ink">
+              {hovered.title}
+            </p>
+            {hovered.meta && (
+              <p className="mt-0.5 text-[11px] text-muted">{hovered.meta}</p>
+            )}
+          </div>
+        </Popup>
+      )}
     </MapGL>
+
+      {/* What the current viewport holds. Without it the map filters invisibly
+          and the user cannot tell whether their panning did anything. */}
+      <div className="pointer-events-none absolute left-3 top-3 z-10">
+        <div className="tnum rounded-full border border-line bg-surface/95 px-3 py-1.5 text-[12px] font-medium text-ink shadow-sm backdrop-blur">
+          {viewportTotal.toLocaleString()} {viewportTotal === 1 ? 'trial' : 'trials'} in view
+        </div>
+      </div>
+    </div>
   );
 };
 
