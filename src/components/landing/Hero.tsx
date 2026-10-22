@@ -21,8 +21,8 @@ export const Hero = () => {
           </h1>
           <p className="mt-5 max-w-2xl text-[17px] leading-7 text-muted">
             Search 607,000+ live registry records by condition and location, then
-            answer a few questions to see which ones fit. No account, no invented
-            trials, no diagnosis.
+            answer a few questions to see which are relevant. No account, no
+            invented trials, no diagnosis.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -31,7 +31,7 @@ export const Hero = () => {
               className="flex items-center gap-2 rounded-md bg-accent px-5 py-3 text-[15px] font-medium text-white transition-colors hover:bg-accent-hover"
             >
               <Sparkles size={17} aria-hidden />
-              See what fits me
+              Find relevant studies
               <ArrowRight size={17} aria-hidden />
             </Link>
             <Link

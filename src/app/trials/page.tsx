@@ -9,6 +9,7 @@ import { FilterSidebar } from '@/components/trial/FilterSidebar';
 import { TrialList } from '@/components/trial/TrialList';
 import { ViewToggle } from '@/components/trial/ViewToggle';
 import { Questionnaire } from '@/components/trial/Questionnaire';
+import { RelevanceChip } from '@/components/relevance/RelevanceChip';
 import { useTrialStore } from '@/stores/trialStore';
 import { fetchTrialsFromApi, StudyFilters, Trial } from '@/lib/api-client';
 import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
@@ -120,6 +121,9 @@ export default function TrialsSearchPage() {
               ? 'Searching…'
               : `${totalCount.toLocaleString()} studies match`}
             {(typeof filters.age === 'number' ||
+              typeof filters.ageMin === 'number' ||
+              typeof filters.ageMax === 'number' ||
+              !!filters.ageBand ||
               !!filters.sex ||
               filters.healthyVolunteer != null ||
               Object.keys(filters.facts ?? {}).length > 0) && (
@@ -143,7 +147,7 @@ export default function TrialsSearchPage() {
             className="flex items-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] font-medium text-accent transition-colors hover:border-accent/60"
           >
             <Sparkles size={15} aria-hidden />
-            Help me find trials
+            Find relevant studies
           </button>
           <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
         </div>
@@ -164,6 +168,9 @@ export default function TrialsSearchPage() {
       {viewMode === 'list' ? (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <aside className="lg:col-span-1">
+            <div className="mb-4">
+              <RelevanceChip onEdit={() => setQuestionnaireOpen(true)} />
+            </div>
             {/* Pass props for map view functionality, but they won't be used here */}
             <FilterSidebar isLoading={isLoading} isCollapsed={false} />
           </aside>
@@ -213,6 +220,9 @@ export default function TrialsSearchPage() {
           <div className="absolute top-0 left-0 z-10 h-full w-full lg:w-[450px] p-4 flex flex-col gap-4 pointer-events-none">
             {/* Re-enable pointer events for the sidebar */}
             <div className="flex-shrink-0 pointer-events-auto">
+              <div className="mb-2">
+                <RelevanceChip onEdit={() => setQuestionnaireOpen(true)} />
+              </div>
               {/* --- Pass collapsed state and setter to the sidebar --- */}
               <FilterSidebar
                 isCollapsed={isSidebarCollapsed}

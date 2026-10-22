@@ -4,6 +4,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send } from 'lucide-react';
 import { AI_SENDER_ID, getMessages, postMessage } from '@/lib/api-client';
+import { relevancePayload } from '@/lib/relevance';
+import { useTrialStore } from '@/stores/trialStore';
+import { RelevancePrompt } from '@/components/relevance/RelevancePrompt';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -11,6 +14,8 @@ interface ChatWindowProps {
 
 export function ChatWindow({ conversationId }: ChatWindowProps) {
   const queryClient = useQueryClient();
+  const filters = useTrialStore((s) => s.filters);
+  const relevance = relevancePayload(filters);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +32,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   const postMessageMutation = useMutation({
     mutationFn: (content: string) => {
       if (!content.trim()) throw new Error('Message cannot be empty');
-      return postMessage(conversationId, content);
+      return postMessage(conversationId, content, relevance);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
@@ -57,7 +62,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           href={`https://clinicaltrials.gov/study/${part}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-bold underline text-blue-200 hover:text-white"
+          className="font-bold underline text-white/90 hover:text-white"
         >
           {part}
         </a>
@@ -68,10 +73,13 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-surface">
       <div className="flex-grow p-6 overflow-y-auto">
-        {isLoading && <p className="text-gray-600">Loading messages...</p>}
-        {error && <p className="text-red-500">Error: {(error as Error).message}</p>}
+        {isLoading && <p className="text-muted">Loading messages...</p>}
+        {error && <p className="text-warn">Error: {(error as Error).message}</p>}
+
+        {/* Offered once, only before the conversation has any messages. */}
+        {messages && messages.length === 0 && <RelevancePrompt className="mb-4" />}
 
         <div className="space-y-4">
           {messages?.map((msg) => {
@@ -92,7 +100,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           {/* v5 renamed isLoading to isPending on mutations. */}
           {postMessageMutation.isPending && (
             <div className="flex justify-start">
-              <div className="max-w-md p-3 rounded-lg bg-gray-200 text-gray-800 animate-pulse">
+              <div className="max-w-md p-3 rounded-lg bg-canvas text-ink animate-pulse">
                 Searching trials...
               </div>
             </div>
@@ -102,7 +110,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
         </div>
       </div>
 
-      <div className="p-4 border-t text-gray-800 bg-gray-50">
+      <div className="p-4 border-t border-line text-ink bg-canvas">
         <form onSubmit={handleSendMessage} className="flex items-center gap-4">
           <input
             type="text"

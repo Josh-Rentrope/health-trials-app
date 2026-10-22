@@ -11,8 +11,8 @@ export const FinalCTA = () => {
               Not sure where to start?
             </h2>
             <p className="mt-2 text-[15px] leading-6 text-muted">
-              Answer a few questions and we will show you the studies that survive
-              them — and be plain about what the registry does not tell us.
+              Answer a few questions and we will show you the studies that remain
+              — and be plain about what the registry does not tell us.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -21,7 +21,7 @@ export const FinalCTA = () => {
               className="flex items-center gap-2 rounded-md bg-accent px-5 py-3 text-[15px] font-medium text-white transition-colors hover:bg-accent-hover"
             >
               <Sparkles size={17} aria-hidden />
-              See what fits me
+              Find relevant studies
               <ArrowRight size={17} aria-hidden />
             </Link>
             <Link

@@ -28,6 +28,11 @@ export interface FilterState {
    * no second data path.
    */
   age?: number | null;
+  /** The band the reader chose, kept for display in the relevance chip. */
+  ageBand?: string | null;
+  ageMin?: number | null;
+  /** `null` means open-ended (65+). */
+  ageMax?: number | null;
   sex?: 'female' | 'male' | null;
   healthyVolunteer?: boolean | null;
   facts?: Record<string, boolean>;
@@ -82,19 +87,17 @@ const initialFilters: FilterState = {
   phase: [],
   correlationCondition: '',
   demographicVariable: '',
-  
-  
+  age: null,
+  ageBand: null,
+  ageMin: null,
+  ageMax: null,
+  sex: null,
+  healthyVolunteer: null,
+  facts: {},
 };
 
 export const useTrialStore = create<TrialState>((set) => ({
-  filters: {
-    condition: '',
-    location: '',
-    status: [],
-    phase: [],
-    correlationCondition:"",
-    demographicVariable:"",
-  },
+  filters: { ...initialFilters },
   pagination: {
     page: 0,
     limit: 50, // Set how many trials your API should return per page

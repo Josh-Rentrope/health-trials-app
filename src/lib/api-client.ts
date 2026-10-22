@@ -205,6 +205,9 @@ export interface StudyFilters {
   limit?: number;
   /** Answers from the questionnaire. Only sent when the reader has given them. */
   age?: number | null;
+  ageMin?: number | null;
+  /** `null` means open-ended (65+). */
+  ageMax?: number | null;
   sex?: 'female' | 'male' | null;
   healthyVolunteer?: boolean | null;
   /** "prior_therapy:chemotherapy": true, meaning the reader HAS had it. */
@@ -276,6 +279,8 @@ export async function fetchTrialsFromApi(
     qs.append('bbox', `${bounds.sw.lng},${bounds.sw.lat},${bounds.ne.lng},${bounds.ne.lat}`);
   }
   if (typeof filters.age === 'number') qs.append('age', String(filters.age));
+  if (typeof filters.ageMin === 'number') qs.append('age_min', String(filters.ageMin));
+  if (typeof filters.ageMax === 'number') qs.append('age_max', String(filters.ageMax));
   if (filters.sex) qs.append('sex', filters.sex);
   // Both directions matter. Sending only `false` meant a healthy reader's answer
   // filtered nothing, because the server never heard it.
@@ -372,6 +377,8 @@ export async function fetchSegment(body: {
   status?: string;
   answers: {
     age?: number | null;
+    age_min?: number | null;
+    age_max?: number | null;
     sex?: string | null;
     healthy_volunteer?: boolean | null;
     facts?: Record<string, boolean>;
@@ -414,9 +421,28 @@ export function getMessages(convId: string): Promise<ChatMessage[]> {
   return getJson<ChatMessage[]>(`/api/chat/conversations/${convId}/messages`);
 }
 
-export function postMessage(convId: string, content: string): Promise<ChatMessage> {
+/**
+ * The relevance answers travel with every message. They are what lets the model
+ * filter instead of guessing, and they use the same names the search tool takes.
+ */
+export interface RelevancePayload {
+  age?: number | null;
+  age_min?: number | null;
+  age_max?: number | null;
+  age_label?: string | null;
+  sex?: 'female' | 'male' | null;
+  healthy_volunteer?: boolean | null;
+  facts?: Record<string, boolean>;
+  condition?: string | null;
+}
+
+export function postMessage(
+  convId: string,
+  content: string,
+  relevance?: RelevancePayload | null,
+): Promise<ChatMessage> {
   return getJson<ChatMessage>(`/api/chat/conversations/${convId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, ...(relevance ? { relevance } : {}) }),
   });
 }
