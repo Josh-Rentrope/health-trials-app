@@ -155,21 +155,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             onChange={(value: string) => handleCheckboxChange('phase', value)}
           />
 
-          <div className="space-y-2">
-            <Button onClick={handleApply} disabled={isLoading} className="w-full">
-              {isLoading ? 'Searching...' : 'Apply Filters'}
-            </Button>
-            {hasSearchFilter && onOpenRelevance && (
-              <button
-                type="button"
-                onClick={onOpenRelevance}
-                className="flex w-full items-center justify-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] font-medium text-accent transition-colors hover:border-accent/60"
-              >
-                <Sparkles size={15} aria-hidden />
-                Find relevant studies
-              </button>
-            )}
-          </div>
     </>
   );
   
@@ -244,6 +229,27 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
               : renderTrialFilters()}
         </div>
       </div>
+
+      {/* Actions sit outside the collapsible fields on purpose: applying a
+          filter in map view collapses the panel, and an action that disappears
+          at the moment it becomes relevant is worse than no action. */}
+      {(!SHOW_CORRELATION || viewMode === 'trials') && (
+        <div className="space-y-2 border-t border-line p-4">
+          <Button onClick={handleApply} disabled={isLoading} className="w-full">
+            {isLoading ? 'Searching...' : 'Apply Filters'}
+          </Button>
+          {hasSearchFilter && onOpenRelevance && (
+            <button
+              type="button"
+              onClick={onOpenRelevance}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[13px] font-medium text-accent transition-colors hover:border-accent/60"
+            >
+              <Sparkles size={15} aria-hidden />
+              Find relevant studies
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
