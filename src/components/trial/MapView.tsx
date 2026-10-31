@@ -34,6 +34,10 @@ const MAX_CLUSTER_ZOOM = 20;
 // eye reads concentration before it reads any number.
 const CLUSTER_RAMP = ['#C3BDF6', '#9A8FEC', '#7566E1', '#5B4BD6'];
 
+// One shared empty result. A fresh `[]` on every render would give the memos
+// below a new dependency each time and redo the clustering work for nothing.
+const EMPTY_MAP: MapData = [];
+
 function clusterVisual(count: number, max: number) {
   const t = max > 1 ? Math.min(1, Math.log10(count + 1) / Math.log10(max + 1)) : 0.5;
   return {
@@ -167,7 +171,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   const lastGoodMap = useRef<MapPayload | undefined>(undefined);
   if (mapPayload) lastGoodMap.current = mapPayload;
   const shownPayload = mapPayload ?? lastGoodMap.current;
-  const shownMap: MapData = shownPayload?.items ?? [];
+  const shownMap: MapData = shownPayload?.items ?? EMPTY_MAP;
   // The grouping side the payload was fetched for, not the zoom under the
   // cursor right now.
   const serverGrouped = shownPayload?.mode !== 'client';
