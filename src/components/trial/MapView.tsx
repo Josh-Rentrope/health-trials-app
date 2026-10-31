@@ -66,6 +66,15 @@ type ClusterProperties = {
   precision?: string | null;
 };
 
+// A map payload plus the grouping side it was fetched for. `mode: 'server'`
+// means the array holds clusters and sites from `/studies/map-data`;
+// `mode: 'client'` means individual studies for the browser clusterer.
+type MapPayload = {
+  mode: 'server' | 'client';
+  zoom: number;
+  items: MapData;
+};
+
 type MapViewProps = {
   onMapMove?: () => void;
 };
@@ -101,8 +110,6 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   const correlationQueryEnabled =
     isCorrelationMode && !!filters.correlationCondition && !!filters.demographicVariable;
 
-  const currentZoom = Math.round(mapViewState.zoom ?? 0);
-
   // A small card follows the pointer over a marker. Kept separate from
   // `activePopup` so hovering never steals the popup the user opened.
   const [hovered, setHovered] = useState<{
@@ -112,17 +119,42 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     meta: string;
   } | null>(null);
 
-  const { data: mapData } = useQuery<MapData>({
-    queryKey: ['mapData', debouncedFilters, currentZoom],
+  // Which side groups the pins is one decision, taken from a settled zoom, and
+  // it travels with the data instead of being re-derived at draw time.
+  //
+  // The regression this fixes: the draw branch read the live zoom, so the moment
+  // a zoom-out crossed the threshold the map switched to the server branch while
+  // the payload on screen was still the individual studies fetched for the
+  // zoomed-in viewport. Those studies went straight back through the browser
+  // clusterer, so zooming out kept grouping client-side and never asked the
+  // server. Tagging the payload keeps the drawing honest: a payload is always
+  // drawn in the mode it was fetched for, and the swap happens when the matching
+  // one arrives.
+  const [settledZoom] = useDebounce(mapViewState.zoom ?? 0, 250);
+  const clientGrouping = Math.round(settledZoom) >= CLUSTER_THRESHOLD;
+
+  const { data: mapPayload } = useQuery<MapPayload>({
+    queryKey: [
+      'mapData',
+      debouncedFilters,
+      clientGrouping ? 'client' : 'server',
+      Math.round(settledZoom),
+    ],
     queryFn: async () => {
-      if (!debouncedFilters.bounds) return [];
-      if (currentZoom < CLUSTER_THRESHOLD) {
-        return fetchMapData(debouncedFilters, currentZoom);
+      if (!debouncedFilters.bounds) {
+        return { mode: 'client' as const, zoom: settledZoom, items: [] as MapData };
+      }
+      if (!clientGrouping) {
+        return {
+          mode: 'server' as const,
+          zoom: settledZoom,
+          items: await fetchMapData(debouncedFilters, settledZoom),
+        };
       }
       // Past the cluster threshold the server returns individual studies rather
       // than clusters, fetched through the list endpoint.
       const { trials } = await fetchTrialsFromApi({ ...debouncedFilters, limit: 200, page: 0 });
-      return trials;
+      return { mode: 'client' as const, zoom: settledZoom, items: trials as MapData };
     },
     enabled: !!debouncedFilters.bounds,
     // v5 renamed this; the old key was a type error and a silent no-op, so every
@@ -132,9 +164,13 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
 
   // Hold the last map we successfully painted, so a failed request leaves the
   // current view alone instead of blanking the map under the user's cursor.
-  const lastGoodMap = useRef<MapData | undefined>(undefined);
-  if (mapData) lastGoodMap.current = mapData;
-  const shownMap: MapData = mapData ?? lastGoodMap.current ?? [];
+  const lastGoodMap = useRef<MapPayload | undefined>(undefined);
+  if (mapPayload) lastGoodMap.current = mapPayload;
+  const shownPayload = mapPayload ?? lastGoodMap.current;
+  const shownMap: MapData = shownPayload?.items ?? [];
+  // The grouping side the payload was fetched for, not the zoom under the
+  // cursor right now.
+  const serverGrouped = shownPayload?.mode !== 'client';
 
   // Trials by id, so a cluster's leaves can be resolved back to their records.
   const trialById = useMemo(() => {
@@ -160,7 +196,9 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
   });
 
   const points = useMemo<PointFeature[]>(() => {
-    if (!shownMap.length) return [];
+    // A server-grouped payload holds clusters, which supercluster would happily
+    // re-bundle into its own groups. Only individual studies are ever fed to it.
+    if (!shownMap.length || serverGrouped) return [];
     return shownMap
       // Sites are multi-trial points, not points to cluster; they render as their
       // own marker and open a list.
@@ -178,7 +216,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
           geometry: { type: 'Point' as const, coordinates: [loc.longitude, loc.latitude] },
         })),
       );
-  }, [shownMap]);
+  }, [shownMap, serverGrouped]);
 
   // How much the current viewport holds, and the busiest single cluster -- the
   // denominator for the log size ramp.
@@ -335,6 +373,20 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
     const zoomNow = mapViewState.zoom ?? 0;
     const target = Math.min(raw, MAX_CLUSTER_ZOOM);
     return !(raw >= MAX_CLUSTER_ZOOM || target <= zoomNow || zoomNow >= MAX_CLUSTER_ZOOM - 1);
+  };
+
+  // Where a click on a server-drawn group should land.
+  //
+  // Two levels in is the normal step. But when that step lands on the threshold
+  // itself, the map hands back another grouped view and the reader has to scroll
+  // once more to reach the individual cases, which is the complaint this
+  // addresses. So a step that lands at or a hair under the threshold is pushed
+  // one level past it, and a click from a far-out zoom still moves two levels
+  // rather than jumping the reader across the country.
+  const serverClusterZoom = (zoomNow: number) => {
+    const step = Math.min(zoomNow + 2, MAX_CLUSTER_ZOOM);
+    const target = step > CLUSTER_THRESHOLD - 1 ? CLUSTER_THRESHOLD + 1 : step;
+    return Math.min(target, MAX_CLUSTER_ZOOM);
   };
 
   const handleMapClick = (e: mapboxgl.MapLayerMouseEvent) => {
@@ -522,7 +574,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
       style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/light-v11"
     >
-      {currentZoom < CLUSTER_THRESHOLD
+      {serverGrouped
         ? shownMap.map((item) => {
             if (item.is_cluster) {
               const cluster = item as ApiCluster;
@@ -550,7 +602,7 @@ const MapView: React.FC<MapViewProps> = ({ onMapMove }) => {
                         ...mapViewState,
                         latitude: cluster.latitude,
                         longitude: cluster.longitude,
-                        zoom: (mapViewState.zoom ?? 0) + 2,
+                        zoom: serverClusterZoom(mapViewState.zoom ?? 0),
                       });
                     }}
                   >
